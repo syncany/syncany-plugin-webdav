@@ -1,0 +1,60 @@
+evaluationDependsOn(':syncany')
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+configurations {
+	pluginjar
+}
+
+project.ext {
+	pluginId = "webdav"
+	pluginName = "WebDAV"
+	pluginVersion = "0.1.0"	
+	pluginDate = new Date()
+	pluginAppMinVersion = "0.1.2-alpha"
+	pluginRelease = project(':syncany').ext.applicationRelease
+	
+	pluginVersionSnapshot = project(':syncany').ext.applicationVersionSnapshot
+	pluginVersionFull = "${pluginVersion}${pluginVersionSnapshot}"	
+}
+
+dependencies {
+	compile		project(':syncany-lib')
+	compile		"com.github.lookfirst:sardine:5.0.1"          
+
+	testCompile	project(path: ':syncany-lib', configuration: 'tests')      
+	testCompile	project(path: ':syncany-util', configuration: 'tests')
+	testCompile	"junit:junit:4.9"	
+}
+
+repositories {
+	mavenCentral()
+}
+
+processResources {	
+	filter{ String line -> line.replaceAll('%pluginId%', "${pluginId}") }        	            
+	filter{ String line -> line.replaceAll('%pluginName%', "${pluginName}") }        	            
+	filter{ String line -> line.replaceAll('%pluginVersion%', "${pluginVersionFull}") }      	            
+	filter{ String line -> line.replaceAll('%pluginDate%', "${pluginDate}") }    	
+	filter{ String line -> line.replaceAll('%pluginAppMinVersion%', "${pluginAppMinVersion}") }    	
+	filter{ String line -> line.replaceAll('%pluginRelease%', "${pluginRelease}") }    	
+}		
+
+task pluginJar(type: Jar, dependsOn: [processResources, compileJava]) {
+	from files(sourceSets.main.output.classesDir)
+	from files(sourceSets.main.output.resourcesDir)
+	from { configurations.pluginjar.collect { zipTree(it) } }
+
+	baseName = "syncany-plugin-${pluginId}"
+	version  = "${pluginVersionFull}"
+	
+	manifest {
+		attributes("Plugin-Id": "${pluginId}")
+		attributes("Plugin-Name": "${pluginName}")
+		attributes("Plugin-Version": "${pluginVersionFull}")
+		attributes("Plugin-Date": "${pluginDate}")		
+		attributes("Plugin-App-Min-Version": "${pluginAppMinVersion}")		
+		attributes("Plugin-Release": "${pluginRelease}")		
+	}						
+}
