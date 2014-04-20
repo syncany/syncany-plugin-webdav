@@ -239,7 +239,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean testTargetCanWrite() throws StorageException {
+	public boolean testTargetCanWrite() {
 		try {
 			String testFileUrl = repoPath + "syncany-write-test";
 			
@@ -277,7 +277,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean testTargetCanCreate() throws StorageException {
+	public boolean testTargetCanCreate() {
 		try {
 			if (testTargetExists()) {
 				logger.log(Level.INFO, "testTargetCanCreate: Target already exists, so 'can create' test successful.");
@@ -298,7 +298,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean testRepoFileExists() throws StorageException {
+	public boolean testRepoFileExists() {
 		try {
 			String repoFileUrl = getRemoteFileUrl(new RepoRemoteFile());
 			
