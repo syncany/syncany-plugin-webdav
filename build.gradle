@@ -22,8 +22,10 @@ project.ext {
 dependencies {
 	compile		project(':syncany-lib')
 	compile		"com.github.lookfirst:sardine:5.0.1"          
-
+	compile		"org.slf4j:slf4j-simple:1.7.6" // Required to silence Sardine logger
+        
 	pluginjar	"com.github.lookfirst:sardine:5.0.1"          
+	pluginjar	"org.slf4j:slf4j-simple:1.7.6" // Required to silence Sardine logger
 
 	testCompile	project(path: ':syncany-lib', configuration: 'tests')      
 	testCompile	project(path: ':syncany-util', configuration: 'tests')

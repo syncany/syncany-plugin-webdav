@@ -23,6 +23,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.MessageDigest;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,13 +35,17 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.conn.ssl.TrustStrategy;
 import org.syncany.connection.plugins.AbstractTransferManager;
 import org.syncany.connection.plugins.DatabaseRemoteFile;
 import org.syncany.connection.plugins.MultiChunkRemoteFile;
+import org.syncany.connection.plugins.PluginListener;
 import org.syncany.connection.plugins.RemoteFile;
 import org.syncany.connection.plugins.RepoRemoteFile;
 import org.syncany.connection.plugins.StorageException;
+import org.syncany.crypto.CipherUtil;
 import org.syncany.util.FileUtil;
+import org.syncany.util.StringUtil;
 
 import com.github.sardine.DavResource;
 import com.github.sardine.Sardine;
@@ -49,18 +58,27 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	private static final int HTTP_NOT_FOUND = 404;
 	private static final Logger logger = Logger.getLogger(WebdavTransferManager.class.getSimpleName());
 
-	private Sardine sardine;
+	private static KeyStore trustStore;
+	private static boolean hasNewCertificates;
+
+	private Sardine sardine;	
+	private PluginListener pluginListener;	
 
 	private String repoPath;
 	private String multichunkPath;
 	private String databasePath;
 
-	public WebdavTransferManager(WebdavConnection connection) {
+	public WebdavTransferManager(WebdavConnection connection, PluginListener pluginListener) {
 		super(connection);
+
+		this.sardine = null;
+		this.pluginListener = pluginListener;		
 
 		this.repoPath = connection.getUrl().replaceAll("/$", "") + "/";
 		this.multichunkPath = repoPath + "multichunks/";
 		this.databasePath = repoPath + "databases/";
+		
+		loadTrustStore();
 	}
 
 	@Override
@@ -71,21 +89,27 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	@Override
 	public void connect() throws StorageException {
 		if (sardine == null) {
-			logger.log(Level.INFO, "WebDAV: Connect called. Creating Sardine ...");
-			
 			if (getConnection().isSecure()) {
-				final SSLSocketFactory sslSocketFactory = getConnection().getSslSocketFactory();
+				logger.log(Level.INFO, "WebDAV: Connect called. Creating Sardine (SSL!) ...");
 
-				sardine = new SardineImpl() {
-					@Override
-					protected SSLSocketFactory createDefaultSecureSocketFactory() {
-						return sslSocketFactory;
-					}
-				};
-
-				sardine.setCredentials(getConnection().getUsername(), getConnection().getPassword());
+				try {									
+					final SSLSocketFactory sslSocketFactory = initSsl();
+	
+					sardine = new SardineImpl() {
+						@Override
+						protected SSLSocketFactory createDefaultSecureSocketFactory() {
+							return sslSocketFactory;
+						}
+					};
+	
+					sardine.setCredentials(getConnection().getUsername(), getConnection().getPassword());
+				}
+				catch (Exception e) {
+					throw new StorageException(e);
+				}
 			}
 			else {
+				logger.log(Level.INFO, "WebDAV: Connect called. Creating Sardine (non-SSL) ...");
 				sardine = SardineFactory.begin(getConnection().getUsername(), getConnection().getPassword());
 			}
 		}
@@ -93,6 +117,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 
 	@Override
 	public void disconnect() {
+		storeTrustStore();
 		sardine = null;
 	}
 
@@ -314,6 +339,208 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		catch (Exception e) {
 			logger.log(Level.WARNING, "testRepoFileExists: Exception thrown while testing if repo file exists.", e);
 			return false;
+		}
+	}
+	
+	private void loadTrustStore() {
+		if (trustStore == null) {
+			try {				
+				trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+				
+				if (getConnection().getConfig() != null) { // Can be null if uninitialized!					
+					File appDir = getConnection().getConfig().getAppDir();
+					File certStoreFile = new File(appDir, "truststore.jks"); 
+										
+					if (certStoreFile.exists()) {
+						logger.log(Level.INFO, "WebDAV: Loading trust store from " + certStoreFile + " ...");
+
+						FileInputStream trustStoreInputStream = new FileInputStream(certStoreFile); 		 		
+						trustStore.load(trustStoreInputStream, new char[0]);
+						
+						trustStoreInputStream.close();
+					}	
+					else {
+						logger.log(Level.INFO, "WebDAV: Loading trust store (empty, no trust store in config) ...");
+						trustStore.load(null, new char[0]); // Initialize empty store						
+					}
+				}
+				else {
+					logger.log(Level.INFO, "WebDAV: Loading trust store (empty, no config) ...");
+					trustStore.load(null, new char[0]); // Initialize empty store
+				}
+			}
+			catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+		else {
+			logger.log(Level.INFO, "WebDAV: Trust store already loaded.");			
+		}
+	}
+	
+	private void storeTrustStore() {
+		if (trustStore != null) {
+			if (!hasNewCertificates) {
+				logger.log(Level.INFO, "WebDAV: No new certificates. Nothing to store.");
+			}
+			else {
+				logger.log(Level.INFO, "WebDAV: New certificates. Storing trust store on disk.");
+
+				try {
+					if (getConnection().getConfig() != null) { 											
+						File appDir = getConnection().getConfig().getAppDir();
+						File certStoreFile = new File(appDir, "truststore.jks"); 							
+						
+						FileOutputStream trustStoreOutputStream = new FileOutputStream(certStoreFile);
+						trustStore.store(trustStoreOutputStream, new char[0]);
+						
+						trustStoreOutputStream.close();
+						
+						hasNewCertificates = false;
+					}
+					else {
+						logger.log(Level.INFO, "WebDAV: Cannot store trust store; config not initialized.");
+					}
+				}
+				catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+			}
+		}
+	}
+
+	private SSLSocketFactory initSsl() throws Exception {
+		TrustStrategy trustStrategy = new TrustStrategy() {
+			@Override
+			public boolean isTrusted(X509Certificate[] certificateChain, String authType) throws CertificateException {
+				logger.log(Level.INFO, "WebDAV: isTrusted("+certificateChain.toString()+", "+authType+")");
+								
+				try {
+					// First check if already in trust store, if so; okay!
+					X509Certificate serverCertificate = certificateChain[0];
+					
+					for (int i = 0; i < certificateChain.length; i++) {
+						X509Certificate certificate = certificateChain[i];
+
+						logger.log(Level.FINE, "WebDAV: Checking certificate validity: " + certificate.getSubjectDN().toString());
+						logger.log(Level.FINEST, "WebDAV:              Full certificate: " + certificate);
+						
+						// Check validity
+						try {
+							certificate.checkValidity();	
+						}
+						catch (CertificateException e) {
+							logger.log(Level.FINE, "WebDAV: Certificate is NOT valid.", e);
+							return false;
+						}
+						
+						logger.log(Level.FINE, "WebDAV: Checking is VALID.");
+						
+						// Certificate found; we trust this, okay!
+						if (inTrustStore(certificate)) {
+							logger.log(Level.FINE, "WebDAV: Certificate found in trust store.");
+							return true;
+						}
+						
+						// Certificate is new; continue ...
+						else {
+							logger.log(Level.FINE, "WebDAV: Certificate NOT found in trust store.");
+						}
+					}
+						
+					// We we reach this code, none of the CAs are known in the trust store
+					// So we ask the user if he/she wants to add the server certificate to the trust store  
+
+					if (pluginListener == null) {
+						throw new RuntimeException("pluginListener cannot be null!");
+					}
+					
+					boolean userTrustsCertificate = pluginListener.onUserConfirm("Unknown SSL/TLS certificate", formatCertificate(serverCertificate), "Do you want to trust this certificate?");
+					
+					if (!userTrustsCertificate) {
+						logger.log(Level.INFO, "WebDAV: User does not trust certificate. ABORTING.");
+						return false;
+					}
+					
+					logger.log(Level.INFO, "WebDAV: User trusts certificate. Adding to trust store.");
+					addToTrustStore(serverCertificate);
+	
+					return true;
+				}
+				catch (Exception e) {
+					logger.log(Level.SEVERE, "WebDAV: Key store exception.", e);
+					return false;
+				}
+			}		
+			
+			private boolean inTrustStore(X509Certificate certificate) throws KeyStoreException {
+				String certAlias = getCertificateAlias(certificate);		
+				return trustStore.containsAlias(certAlias);
+			}
+			
+			private void addToTrustStore(X509Certificate certificate) throws KeyStoreException {
+				String certAlias = getCertificateAlias(certificate);
+				trustStore.setCertificateEntry(certAlias, certificate);
+				hasNewCertificates = true;				
+			}
+			
+			private String getCertificateAlias(X509Certificate certificate) {
+				return StringUtil.toHex(certificate.getSignature());
+			}
+		};
+
+		return new SSLSocketFactory(trustStrategy);
+	}
+	
+	private String formatCertificate(X509Certificate cert) {
+		try {			
+			CipherUtil.enableUnlimitedStrength();
+			
+			String checksumMd5 = formatChecksum(createChecksum(cert.getEncoded(), "MD5"));
+			String checksumSha1 = formatChecksum(createChecksum(cert.getEncoded(), "SHA1"));
+			String checksumSha256 = formatChecksum(createChecksum(cert.getEncoded(), "SHA256"));
+			
+			StringBuilder sb = new StringBuilder();
+			
+			sb.append(String.format("Owner: %s\n", cert.getSubjectDN().getName()));
+			sb.append(String.format("Issuer: %s\n", cert.getIssuerDN().getName()));
+			sb.append(String.format("Serial number: %d\n", cert.getSerialNumber()));
+			sb.append(String.format("Valid from %s until: %s\n", cert.getNotBefore().toString(), cert.getNotAfter().toString()));
+			sb.append("Certificate fingerprints:\n");
+			sb.append(String.format("	 MD5:  %s\n", checksumMd5));
+			sb.append(String.format("	 SHA1: %s\n", checksumSha1));
+			sb.append(String.format("	 SHA256: %s", checksumSha256));
+						
+			return sb.toString();
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
+		}		
+	}
+	
+	private String formatChecksum(byte[] checksum) {
+		StringBuilder sb = new StringBuilder();
+		
+		for (int i=0; i<checksum.length; i++) {
+			sb.append(StringUtil.toHex(new byte[] { checksum[i] }).toUpperCase());
+			
+			if (i < checksum.length-1) {
+				sb.append(":");
+			}
+		}
+		
+		return sb.toString();
+	}
+
+	private byte[] createChecksum(byte[] data, String digestAlgorithm) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance(digestAlgorithm);
+			digest.update(data, 0, data.length);
+			
+			return digest.digest();
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
 		}
 	}
 }
