@@ -51,15 +51,22 @@ public abstract class AbstractTransferManager implements TransferManager {
 		StorageTestResult result = new StorageTestResult();
 		
 		try {
-			logger.log(Level.INFO, "- Running connect() ...");
 			connect();
 	
 			result.setTargetExists(testTargetExists());
 			result.setTargetCanWrite(testTargetCanWrite());
 			result.setRepoFileExists(testRepoFileExists());
 
-			if (!result.isTargetExists() && testCreateTarget) {
-				result.setTargetCanCreate(testTargetCanCreate());
+			if (result.isTargetExists()) {
+				result.setTargetCanCreate(true);
+			}
+			else {
+				if (testCreateTarget) {
+					result.setTargetCanCreate(testTargetCanCreate());
+				}
+				else {
+					result.setTargetCanCreate(false);
+				}
 			}
 			
 			result.setTargetCanConnect(true);
