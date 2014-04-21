@@ -17,9 +17,7 @@
  */
 package org.syncany.operations.init;
 
-import org.syncany.connection.plugins.PluginListener;
-
-public interface InitOperationListener extends PluginListener {
+public interface InitOperationListener {
 	public String getPasswordCallback();
 	public void notifyGenerateMasterKey();
 }

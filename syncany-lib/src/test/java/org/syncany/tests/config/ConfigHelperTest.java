@@ -87,7 +87,7 @@ public class ConfigHelperTest {
 		Config testConfig = TestConfigUtil.createTestLocalConfig();
 		
 		// Run
-		Config loadedConfig = ConfigHelper.loadConfig(testConfig.getLocalDir(), null);
+		Config loadedConfig = ConfigHelper.loadConfig(testConfig.getLocalDir());
 		
 		// Test
 		assertNotNull(loadedConfig);
