@@ -50,6 +50,7 @@ import org.syncany.config.ConfigHelper;
 import org.syncany.config.LogFormatter;
 import org.syncany.config.Logging;
 import org.syncany.connection.plugins.Plugin;
+import org.syncany.connection.plugins.PluginListener;
 import org.syncany.connection.plugins.Plugins;
 import org.syncany.util.StringUtil;
 import org.syncany.util.StringUtil.StringJoinListener;
@@ -61,7 +62,7 @@ import org.syncany.util.StringUtil.StringJoinListener;
  *  
  * @author Philipp C. Heckel <philipp.heckel@gmail.com>
  */
-public class CommandLineClient extends Client {
+public class CommandLineClient extends Client implements PluginListener {
 	private static final Logger logger = Logger.getLogger(CommandLineClient.class.getSimpleName());
 	
 	private static final Pattern HELP_TEXT_RESOURCE_PATTERN = Pattern.compile("\\%RESOURCE:([^%]+)\\%");
@@ -110,7 +111,6 @@ public class CommandLineClient extends Client {
 			
 			// Evaluate options
 			// WARNING: Do not re-order unless you know what you are doing!
-			//initHelpOption(options, optionHelp, options.nonOptionArguments());
 			initConfigOption(options, optionLocalDir);
 			initLogOption(options, optionLog, optionLogLevel, optionLogPrint, optionDebug);
 	
@@ -200,7 +200,7 @@ public class CommandLineClient extends Client {
 		}					
 		
 		// Load config
-		config = ConfigHelper.loadConfig(localDir);
+		config = ConfigHelper.loadConfig(localDir, this);
 	}					
 	
 	private int runCommand(OptionSet options, OptionSpec<Void> optionHelp, List<?> nonOptions) throws Exception {
@@ -231,6 +231,7 @@ public class CommandLineClient extends Client {
 		
 		// Init command
 		command.setClient(this);
+		command.setListener(this);
 		command.setOut(out);
 		command.setLocalDir(localDir);
 		
@@ -357,5 +358,22 @@ public class CommandLineClient extends Client {
 		
 		return 0;
 	}
-	
+
+	@Override
+	public boolean onUserConfirm(String subject, String message, String question) {
+		out.println();
+		out.println(subject);
+		out.println("------------------------------");
+		out.println(message);
+		out.println();
+		
+		String yesno = InitConsole.getInstance().readLine(question + " (y/n)? ");
+		
+		if (!yesno.toLowerCase().startsWith("y") && !"".equals(yesno)) {
+			return false;
+		}
+		else {
+			return true;
+		}
+	}	
 }

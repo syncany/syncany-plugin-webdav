@@ -196,4 +196,13 @@ public class ConnectCommand extends AbstractInitCommand implements ConnectOperat
 			return false;
 		}
 	}
+
+	@Override
+	public boolean onUserConfirm(String subject, String message, String question) {
+		if (listener == null) {
+			throw new RuntimeException("No listener registered. User interaction required, but not possible.");
+		}
+		
+		return listener.onUserConfirm(subject, message, question);
+	}
 }
