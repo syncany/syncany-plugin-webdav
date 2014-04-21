@@ -39,10 +39,10 @@ import org.apache.http.conn.ssl.TrustStrategy;
 import org.syncany.connection.plugins.AbstractTransferManager;
 import org.syncany.connection.plugins.DatabaseRemoteFile;
 import org.syncany.connection.plugins.MultiChunkRemoteFile;
-import org.syncany.connection.plugins.PluginListener;
 import org.syncany.connection.plugins.RemoteFile;
 import org.syncany.connection.plugins.RepoRemoteFile;
 import org.syncany.connection.plugins.StorageException;
+import org.syncany.connection.plugins.UserInteractionListener;
 import org.syncany.crypto.CipherUtil;
 import org.syncany.util.FileUtil;
 import org.syncany.util.StringUtil;
@@ -62,17 +62,15 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	private static boolean hasNewCertificates;
 
 	private Sardine sardine;	
-	private PluginListener pluginListener;	
 
 	private String repoPath;
 	private String multichunkPath;
 	private String databasePath;
 
-	public WebdavTransferManager(WebdavConnection connection, PluginListener pluginListener) {
+	public WebdavTransferManager(WebdavConnection connection) {
 		super(connection);
 
 		this.sardine = null;
-		this.pluginListener = pluginListener;		
 
 		this.repoPath = connection.getUrl().replaceAll("/$", "") + "/";
 		this.multichunkPath = repoPath + "multichunks/";
@@ -347,8 +345,8 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			try {				
 				trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
 				
-				if (getConnection().getConfig() != null) { // Can be null if uninitialized!					
-					File appDir = getConnection().getConfig().getAppDir();
+				if (getConnection().getApplicationContext().getConfig() != null) { // Can be null if uninitialized!					
+					File appDir = getConnection().getApplicationContext().getConfig().getAppDir();
 					File certStoreFile = new File(appDir, "truststore.jks"); 
 										
 					if (certStoreFile.exists()) {
@@ -387,8 +385,8 @@ public class WebdavTransferManager extends AbstractTransferManager {
 				logger.log(Level.INFO, "WebDAV: New certificates. Storing trust store on disk.");
 
 				try {
-					if (getConnection().getConfig() != null) { 											
-						File appDir = getConnection().getConfig().getAppDir();
+					if (getConnection().getApplicationContext().getConfig() != null) { 											
+						File appDir = getConnection().getApplicationContext().getConfig().getAppDir();
 						File certStoreFile = new File(appDir, "truststore.jks"); 							
 						
 						FileOutputStream trustStoreOutputStream = new FileOutputStream(certStoreFile);
@@ -450,12 +448,13 @@ public class WebdavTransferManager extends AbstractTransferManager {
 						
 					// We we reach this code, none of the CAs are known in the trust store
 					// So we ask the user if he/she wants to add the server certificate to the trust store  
-
-					if (pluginListener == null) {
+					UserInteractionListener userInteractionListener = getConnection().getApplicationContext().getUserInteractionListener();
+					
+					if (userInteractionListener == null) {
 						throw new RuntimeException("pluginListener cannot be null!");
 					}
 					
-					boolean userTrustsCertificate = pluginListener.onUserConfirm("Unknown SSL/TLS certificate", formatCertificate(serverCertificate), "Do you want to trust this certificate?");
+					boolean userTrustsCertificate = userInteractionListener.onUserConfirm("Unknown SSL/TLS certificate", formatCertificate(serverCertificate), "Do you want to trust this certificate?");
 					
 					if (!userTrustsCertificate) {
 						logger.log(Level.INFO, "WebDAV: User does not trust certificate. ABORTING.");

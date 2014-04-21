@@ -19,35 +19,32 @@ package org.syncany.connection.plugins.webdav;
 
 import java.util.Map;
 
-import org.syncany.config.Config;
+import org.syncany.config.ApplicationContext;
 import org.syncany.connection.plugins.Connection;
-import org.syncany.connection.plugins.PluginListener;
 import org.syncany.connection.plugins.PluginOptionSpec;
 import org.syncany.connection.plugins.PluginOptionSpec.ValueType;
 import org.syncany.connection.plugins.PluginOptionSpecs;
 import org.syncany.connection.plugins.StorageException;
 import org.syncany.connection.plugins.TransferManager;
 
-public class WebdavConnection implements Connection {
-	private Config config;
-	private PluginListener pluginListener;
-	
+public class WebdavConnection extends Connection {
 	private String url;
 	private String username;
 	private String password;
 	private boolean secure;
 
+	public WebdavConnection(ApplicationContext applicationContext) {
+		super(applicationContext);
+	}
+	
 	@Override
 	public TransferManager createTransferManager() {
-		return new WebdavTransferManager(this, pluginListener);
+		return new WebdavTransferManager(this);
 	}
 
 	@Override
-	public void init(Config config, Map<String, String> optionValues, PluginListener pluginListener) throws StorageException {
+	public void init(Map<String, String> optionValues) throws StorageException {
 		getOptionSpecs().validate(optionValues);
-		
-		this.config = config;
-		this.pluginListener = pluginListener;
 		
 		this.url = optionValues.get("url");
 		this.username = optionValues.get("username");
@@ -99,9 +96,5 @@ public class WebdavConnection implements Connection {
 
 	public boolean isSecure() {
 		return secure;
-	}
-	
-	public Config getConfig() {
-		return config;
 	}
 }
