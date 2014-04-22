@@ -20,8 +20,10 @@ package org.syncany.connection.plugins.webdav;
 import org.syncany.config.ApplicationContext;
 import org.syncany.connection.plugins.Connection;
 import org.syncany.connection.plugins.Plugin;
+import org.syncany.connection.plugins.TransferManager;
 
 public class WebdavPlugin extends Plugin {
+	
     public WebdavPlugin() {
     	super("webdav");
     }    
@@ -30,4 +32,14 @@ public class WebdavPlugin extends Plugin {
     public Connection createConnection(ApplicationContext applicationContext) {
         return new WebdavConnection(applicationContext);
     }
+
+	@Override
+	public TransferManager createTransferManager(Connection connection) {
+		return new WebdavTransferManager((WebdavConnection) connection);
+	}
+	
+	@Override
+	public void shutdown() {
+		System.out.println("SHUTDOWN PLUGIN");
+	}
 }

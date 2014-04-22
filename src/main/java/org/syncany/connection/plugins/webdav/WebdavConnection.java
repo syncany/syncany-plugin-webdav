@@ -25,7 +25,6 @@ import org.syncany.connection.plugins.PluginOptionSpec;
 import org.syncany.connection.plugins.PluginOptionSpec.ValueType;
 import org.syncany.connection.plugins.PluginOptionSpecs;
 import org.syncany.connection.plugins.StorageException;
-import org.syncany.connection.plugins.TransferManager;
 
 public class WebdavConnection extends Connection {
 	private String url;
@@ -35,11 +34,6 @@ public class WebdavConnection extends Connection {
 
 	public WebdavConnection(ApplicationContext applicationContext) {
 		super(applicationContext);
-	}
-	
-	@Override
-	public TransferManager createTransferManager() {
-		return new WebdavTransferManager(this);
 	}
 
 	@Override
