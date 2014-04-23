@@ -101,13 +101,14 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		connect();
 
 		try {
-			if (!testRepoFileExists() && createIfRequired) {
-				logger.log(Level.INFO, "WebDAV: Init called; creating repo directories ... ");
-				
+			logger.log(Level.INFO, "WebDAV: Init called; creating repo directories ... ");				
+
+			if (!testTargetExists() && createIfRequired) {
 				sardine.createDirectory(repoPath);
-				sardine.createDirectory(multichunkPath);
-				sardine.createDirectory(databasePath);
 			}
+			
+			sardine.createDirectory(multichunkPath);
+			sardine.createDirectory(databasePath);
 		}
 		catch (Exception e) {
 			logger.log(Level.SEVERE, "Cannot initialize WebDAV folder.", e);
