@@ -30,6 +30,7 @@ import org.syncany.chunk.Chunker;
 import org.syncany.chunk.CipherTransformer;
 import org.syncany.chunk.GzipTransformer;
 import org.syncany.chunk.ZipMultiChunker;
+import org.syncany.config.ApplicationContext;
 import org.syncany.config.Config;
 import org.syncany.config.to.ConfigTO;
 import org.syncany.config.to.ConfigTO.ConnectionTO;
@@ -161,7 +162,7 @@ public class TestConfigUtil {
 		repoTO.setChunkerTO(createFixedChunkerTO());
 		repoTO.setMultiChunker(createZipMultiChunkerTO());
 
-		return new Config(new File("/dummy"), configTO, repoTO);
+		return new Config(new File("/dummy"), new ApplicationContext(), configTO, repoTO);
 	}
 
 	public static Config createTestLocalConfig(String machineName, Connection connection) throws Exception {
@@ -189,7 +190,7 @@ public class TestConfigUtil {
 		configTO.setConnectionTO(connectionTO);
 				
 		// Create 
-		Config config = new Config(tempLocalDir, configTO, repoTO);
+		Config config = new Config(tempLocalDir, new ApplicationContext(), configTO, repoTO);
 
 		config.setConnection(connection);
 		config.getAppDir().mkdirs();
@@ -252,7 +253,7 @@ public class TestConfigUtil {
 
 	public static Connection createTestLocalConnection() throws Exception {
 		Plugin plugin = Plugins.get("local");
-		Connection conn = plugin.createConnection();
+		Connection conn = plugin.createConnection(new ApplicationContext());
 
 		File tempRepoDir = TestFileUtil.createTempDirectoryInSystemTemp(createUniqueName("repo", conn));
 
@@ -260,22 +261,23 @@ public class TestConfigUtil {
 		pluginSettings.put("path", tempRepoDir.getAbsolutePath());
 
 		conn.init(pluginSettings);
-		conn.createTransferManager().init(true);
+		
+		plugin.createTransferManager(conn).init(true);
 
 		return conn;
 	}
 
 	public static UnreliableLocalConnection createTestUnreliableLocalConnection(List<String> failingOperationPatterns) throws Exception {
-		UnreliableLocalConnection unreliableLocalConnection = createTestUnreliableLocalConnectionWithoutInit(failingOperationPatterns);
+		UnreliableLocalPlugin unreliableLocalPlugin = new UnreliableLocalPlugin();
+		UnreliableLocalConnection unreliableLocalConnection = createTestUnreliableLocalConnectionWithoutInit(unreliableLocalPlugin, failingOperationPatterns);
 
-		unreliableLocalConnection.createTransferManager().init(true);
+		unreliableLocalPlugin.createTransferManager(unreliableLocalConnection).init(true);
 
 		return unreliableLocalConnection;
 	}
 	
-	public static UnreliableLocalConnection createTestUnreliableLocalConnectionWithoutInit(List<String> failingOperationPatterns) throws Exception {
-		UnreliableLocalPlugin unreliableLocalPlugin = new UnreliableLocalPlugin();
-		UnreliableLocalConnection unreliableLocalConnection = (UnreliableLocalConnection) unreliableLocalPlugin.createConnection();
+	public static UnreliableLocalConnection createTestUnreliableLocalConnectionWithoutInit(UnreliableLocalPlugin unreliableLocalPlugin, List<String> failingOperationPatterns) throws Exception {		
+		UnreliableLocalConnection unreliableLocalConnection = (UnreliableLocalConnection) unreliableLocalPlugin.createConnection(new ApplicationContext());
 
 		File tempRepoDir = TestFileUtil.createTempDirectoryInSystemTemp(createUniqueName("repo", new Random().nextFloat()));
 

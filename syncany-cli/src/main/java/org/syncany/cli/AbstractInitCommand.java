@@ -17,13 +17,13 @@
  */
 package org.syncany.cli;
 
-import java.net.InetAddress;
+import java.math.BigInteger;
 import java.net.UnknownHostException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
@@ -33,11 +33,11 @@ import org.syncany.config.to.ConfigTO.ConnectionTO;
 import org.syncany.connection.plugins.Connection;
 import org.syncany.connection.plugins.Plugin;
 import org.syncany.connection.plugins.PluginOptionSpec;
-import org.syncany.connection.plugins.StorageTestResult;
 import org.syncany.connection.plugins.PluginOptionSpec.OptionValidationResult;
 import org.syncany.connection.plugins.PluginOptionSpecs;
 import org.syncany.connection.plugins.Plugins;
 import org.syncany.connection.plugins.StorageException;
+import org.syncany.connection.plugins.StorageTestResult;
 import org.syncany.operations.init.GenlinkOperationResult;
 import org.syncany.util.StringUtil;
 import org.syncany.util.StringUtil.StringJoinListener;
@@ -54,7 +54,7 @@ public abstract class AbstractInitCommand extends Command {
 		ConfigTO configTO = new ConfigTO();
 
 		configTO.setDisplayName(getDefaultDisplayName());
-		configTO.setMachineName(getDefaultMachineName());
+		configTO.setMachineName(getRandomMachineName());
 		configTO.setMasterKey(null); 
 		configTO.setConnectionTO(connectionTO); // can be null
 
@@ -122,7 +122,7 @@ public abstract class AbstractInitCommand extends Command {
 	}
 
 	protected Map<String, String> askPluginSettings(Plugin plugin, Map<String, String> knownPluginOptionValues, boolean confirmKnownValues) throws StorageException {
-		Connection connection = plugin.createConnection();
+		Connection connection = plugin.createConnection(client.getApplicationContext());
 		PluginOptionSpecs pluginOptionSpecs = connection.getOptionSpecs();
 		
 		Map<String, String> pluginOptionValues = new HashMap<String, String>();
@@ -159,7 +159,7 @@ public abstract class AbstractInitCommand extends Command {
 			knownPluginOptionValues = new HashMap<String, String>();
 		}
 		
-		Connection connection = plugin.createConnection();
+		Connection connection = plugin.createConnection(client.getApplicationContext());
 		PluginOptionSpecs pluginOptionSpecs = connection.getOptionSpecs();		
 
 		pluginOptionSpecs.validate(knownPluginOptionValues); // throws error if invalid
@@ -289,9 +289,9 @@ public abstract class AbstractInitCommand extends Command {
 		return plugin;
 	}
 
-	protected String getDefaultMachineName() throws UnknownHostException {
-		return new String(InetAddress.getLocalHost().getHostName() + System.getProperty("user.name") + Math.abs(new Random().nextInt())).replaceAll(
-				"[^a-zA-Z0-9]", "");
+	protected String getRandomMachineName() {
+		String randomStr = new BigInteger(128, new SecureRandom()).toString(32);
+		return (randomStr.length() > 16) ? randomStr.substring(0, 16) : randomStr;
 	}
 
 	protected String getDefaultDisplayName() throws UnknownHostException {

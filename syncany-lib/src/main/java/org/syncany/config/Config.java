@@ -71,21 +71,24 @@ public class Config {
 	private SaltedSecretKey masterKey;
 
 	private Cache cache;	
+	private Plugin plugin;
 	private Connection connection;
     private Chunker chunker;
     private MultiChunker multiChunker;
     private Transformer transformer;
     private IgnoredFiles ignoredFiles;
+    private ApplicationContext applicationContext;
       
     static {    	    	
     	Logging.init();
     }
     
-	public Config(File aLocalDir, ConfigTO configTO, RepoTO repoTO) throws ConfigException {
+	public Config(File aLocalDir, ApplicationContext applicationContext, ConfigTO configTO, RepoTO repoTO) throws ConfigException {
 		if (aLocalDir == null || configTO == null || repoTO == null) {
 			throw new ConfigException("Arguments aLocalDir, configTO and repoTO cannot be null.");
 		}
 		
+    	initApplicationContext(applicationContext);    	
 		initNames(configTO);
 		initMasterKey(configTO);
 		initDirectories(aLocalDir);
@@ -95,6 +98,11 @@ public class Config {
     	initConnection(configTO);  	
 	}		
 	
+	private void initApplicationContext(ApplicationContext applicationContext) {
+		this.applicationContext = applicationContext;
+		this.applicationContext.setConfig(this);
+	}
+
 	private void initNames(ConfigTO configTO) throws ConfigException {
 		if (configTO.getMachineName() == null || !configTO.getMachineName().matches("[a-zA-Z0-9]+")) {
 			throw new ConfigException("Machine name cannot be empty and must be only characters and numbers (A-Z, 0-9).");
@@ -219,14 +227,14 @@ public class Config {
 
 	private void initConnection(ConfigTO configTO) throws ConfigException {
 		if (configTO.getConnectionTO() != null) {
-			Plugin plugin = Plugins.get(configTO.getConnectionTO().getType());
+			plugin = Plugins.get(configTO.getConnectionTO().getType());
 	    	
 	    	if (plugin == null) {
 	    		throw new ConfigException("Plugin not supported: " + configTO.getConnectionTO().getType());
 	    	}
 	    	
 	    	try {
-		    	connection = plugin.createConnection();
+		    	connection = plugin.createConnection(applicationContext);
 		    	connection.init(configTO.getConnectionTO().getSettings());
 	    	}
 	    	catch (StorageException e) {
@@ -262,7 +270,11 @@ public class Config {
 	public void setDisplayName(String displayName) {
 		this.displayName = displayName;
 	}
-
+		
+	public Plugin getPlugin() {
+		return plugin;
+	}
+	
 	public Connection getConnection() {
         return connection;
     }

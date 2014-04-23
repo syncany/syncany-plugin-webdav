@@ -26,6 +26,7 @@ import java.util.Map;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.syncany.config.ApplicationContext;
 import org.syncany.connection.plugins.Connection;
 import org.syncany.connection.plugins.DatabaseRemoteFile;
 import org.syncany.connection.plugins.MasterRemoteFile;
@@ -80,10 +81,10 @@ public abstract class AbstractTransferManagerTest {
 
 		Map<String, String> invalidEmptyPluginSettings = new HashMap<String, String>();
 
-		Connection connection = plugin.createConnection();
+		Connection connection = plugin.createConnection(new ApplicationContext());
 		connection.init(invalidEmptyPluginSettings);
 
-		TransferManager transferManager = connection.createTransferManager();
+		TransferManager transferManager = plugin.createTransferManager(connection);
 
 		// This should cause a Storage exception, because the path does not exist
 		transferManager.connect();
@@ -189,9 +190,9 @@ public abstract class AbstractTransferManagerTest {
 	private TransferManager loadPluginAndCreateTransferManager() throws StorageException {
 		Plugin pluginInfo = Plugins.get(getPluginId());
 
-		Connection connection = pluginInfo.createConnection();
+		Connection connection = pluginInfo.createConnection(new ApplicationContext());
 		connection.init(createPluginSettings());
 
-		return connection.createTransferManager();
+		return pluginInfo.createTransferManager(connection);
 	}
 }

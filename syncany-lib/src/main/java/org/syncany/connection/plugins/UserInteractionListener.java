@@ -15,11 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.syncany.operations.init;
+package org.syncany.connection.plugins;
 
-import org.syncany.connection.plugins.UserInteractionListener;
-
-public interface InitOperationListener extends UserInteractionListener {
-	public String getPasswordCallback();
-	public void notifyGenerateMasterKey();
+public interface UserInteractionListener {
+	public boolean onUserConfirm(String subject, String message, String question);
 }

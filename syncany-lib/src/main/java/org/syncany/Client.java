@@ -18,12 +18,11 @@
 package org.syncany;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+import org.syncany.config.ApplicationContext;
 import org.syncany.config.Config;
-import org.syncany.connection.plugins.StorageException;
 import org.syncany.crypto.CipherException;
 import org.syncany.operations.CleanupOperation;
 import org.syncany.operations.CleanupOperation.CleanupOperationOptions;
@@ -87,11 +86,25 @@ public class Client {
 	private static File userAppDir;
 	private static File userPluginsDir;
 
+	protected ApplicationContext applicationContext;
 	protected Config config;
 
 	static {
 		initApplicationProperties();
 		initUserAppDirs();	
+	}
+	
+	public Client() {
+		this.applicationContext = new ApplicationContext();
+		this.config = null;
+	}
+	
+	public ApplicationContext getApplicationContext() {
+		return applicationContext;
+	}
+
+	public void setApplicationContext(ApplicationContext applicationContext) {
+		this.applicationContext = applicationContext;
 	}
 
 	public void setConfig(Config config) {
@@ -155,7 +168,7 @@ public class Client {
 	}	
 
 	public GenlinkOperationResult genlink() throws Exception {
-		return new GenlinkOperation(config).execute();
+		return new GenlinkOperation(applicationContext).execute();
 	}
 
 	public InitOperationResult init(InitOperationOptions options) throws Exception {
@@ -163,17 +176,17 @@ public class Client {
 	}
 
 	public InitOperationResult init(InitOperationOptions options, InitOperationListener listener) throws Exception {
-		return new InitOperation(options, listener).execute();
+		return new InitOperation(applicationContext, options, listener).execute();
 	}
 
-	public ConnectOperationResult connect(ConnectOperationOptions options) throws IOException, StorageException, CipherException {
+	public ConnectOperationResult connect(ConnectOperationOptions options) throws Exception {
 		return connect(options, null);
 	}
 
-	public ConnectOperationResult connect(ConnectOperationOptions options, ConnectOperationListener listener) throws IOException, StorageException,
+	public ConnectOperationResult connect(ConnectOperationOptions options, ConnectOperationListener listener) throws Exception,
 			CipherException {
 		
-		return new ConnectOperation(options, listener).execute();
+		return new ConnectOperation(applicationContext, options, listener).execute();
 	}
 
 	public CleanupOperationResult cleanup() throws Exception {

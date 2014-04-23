@@ -50,6 +50,7 @@ import org.syncany.config.LogFormatter;
 import org.syncany.config.Logging;
 import org.syncany.connection.plugins.Plugin;
 import org.syncany.connection.plugins.Plugins;
+import org.syncany.connection.plugins.UserInteractionListener;
 import org.syncany.util.StringUtil;
 import org.syncany.util.StringUtil.StringJoinListener;
 
@@ -60,7 +61,7 @@ import org.syncany.util.StringUtil.StringJoinListener;
  *  
  * @author Philipp C. Heckel <philipp.heckel@gmail.com>
  */
-public class CommandLineClient extends Client {
+public class CommandLineClient extends Client implements UserInteractionListener {
 	private static final Logger logger = Logger.getLogger(CommandLineClient.class.getSimpleName());
 	
 	private static final Pattern HELP_TEXT_RESOURCE_PATTERN = Pattern.compile("\\%RESOURCE:([^%]+)\\%");
@@ -85,8 +86,14 @@ public class CommandLineClient extends Client {
 	public CommandLineClient(String[] args) {
 		this.args = args;		
 		this.out = System.out;
+		
+		initApplicationContext();	
 	}
 	
+	private void initApplicationContext() {
+		applicationContext.setUserInteractionListener(this);
+	}
+
 	public void setOut(OutputStream out) {
 		this.out = new PrintStream(out);
 	}
@@ -199,7 +206,7 @@ public class CommandLineClient extends Client {
 		}					
 		
 		// Load config
-		config = ConfigHelper.loadConfig(localDir);
+		config = ConfigHelper.loadConfig(localDir, applicationContext);
 	}					
 	
 	private int runCommand(OptionSet options, OptionSpec<Void> optionHelp, List<?> nonOptions) throws Exception {
@@ -356,5 +363,22 @@ public class CommandLineClient extends Client {
 		
 		return -1; // Never reached
 	}
-	
+
+	@Override
+	public boolean onUserConfirm(String subject, String message, String question) {
+		out.println();
+		out.println(subject);
+		out.println("------------------------------");
+		out.println(message);
+		out.println();
+		
+		String yesno = InitConsole.getInstance().readLine(question + " (y/n)? ");
+		
+		if (!yesno.toLowerCase().startsWith("y") && !"".equals(yesno)) {
+			return false;
+		}
+		else {
+			return true;
+		}
+	}	
 }
