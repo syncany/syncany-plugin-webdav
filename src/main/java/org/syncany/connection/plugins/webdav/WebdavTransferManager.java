@@ -346,8 +346,8 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			try {				
 				trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
 				
-				if (getConnection().getApplicationContext().getConfig() != null) { // Can be null if uninitialized!					
-					File appDir = getConnection().getApplicationContext().getConfig().getAppDir();
+				if (getConnection().getConfig() != null) { // Can be null if uninitialized!					
+					File appDir = getConnection().getConfig().getAppDir();
 					File certStoreFile = new File(appDir, "truststore.jks"); 
 										
 					if (certStoreFile.exists()) {
@@ -386,8 +386,8 @@ public class WebdavTransferManager extends AbstractTransferManager {
 				logger.log(Level.INFO, "WebDAV: New certificates. Storing trust store on disk.");
 
 				try {
-					if (getConnection().getApplicationContext().getConfig() != null) { 											
-						File appDir = getConnection().getApplicationContext().getConfig().getAppDir();
+					if (getConnection().getConfig() != null) { 											
+						File appDir = getConnection().getConfig().getAppDir();
 						File certStoreFile = new File(appDir, "truststore.jks"); 							
 						
 						FileOutputStream trustStoreOutputStream = new FileOutputStream(certStoreFile);
@@ -449,7 +449,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 						
 					// We we reach this code, none of the CAs are known in the trust store
 					// So we ask the user if he/she wants to add the server certificate to the trust store  
-					UserInteractionListener userInteractionListener = getConnection().getApplicationContext().getUserInteractionListener();
+					UserInteractionListener userInteractionListener = getConnection().getUserInteractionListener();
 					
 					if (userInteractionListener == null) {
 						throw new RuntimeException("pluginListener cannot be null!");

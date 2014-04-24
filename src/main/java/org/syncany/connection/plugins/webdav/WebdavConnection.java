@@ -19,7 +19,7 @@ package org.syncany.connection.plugins.webdav;
 
 import java.util.Map;
 
-import org.syncany.config.ApplicationContext;
+import org.syncany.config.Config;
 import org.syncany.connection.plugins.Connection;
 import org.syncany.connection.plugins.PluginOptionSpec;
 import org.syncany.connection.plugins.PluginOptionSpec.ValueType;
@@ -32,8 +32,8 @@ public class WebdavConnection extends Connection {
 	private String password;
 	private boolean secure;
 
-	public WebdavConnection(ApplicationContext applicationContext) {
-		super(applicationContext);
+	public WebdavConnection(Config config) {
+		super(config);
 	}
 
 	@Override
