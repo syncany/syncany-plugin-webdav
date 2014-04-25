@@ -23,7 +23,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.cert.CertificateException;
@@ -36,6 +35,7 @@ import java.util.logging.Logger;
 
 import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.conn.ssl.TrustStrategy;
+import org.syncany.config.UserConfig;
 import org.syncany.connection.plugins.AbstractTransferManager;
 import org.syncany.connection.plugins.DatabaseRemoteFile;
 import org.syncany.connection.plugins.MultiChunkRemoteFile;
@@ -58,7 +58,6 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	private static final int HTTP_NOT_FOUND = 404;
 	private static final Logger logger = Logger.getLogger(WebdavTransferManager.class.getSimpleName());
 
-	private static KeyStore trustStore;
 	private static boolean hasNewCertificates;
 
 	private Sardine sardine;	
@@ -66,7 +65,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	private String repoPath;
 	private String multichunkPath;
 	private String databasePath;
-
+	
 	public WebdavTransferManager(WebdavConnection connection) {
 		super(connection);
 
@@ -75,8 +74,6 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		this.repoPath = connection.getUrl().replaceAll("/$", "") + "/";
 		this.multichunkPath = repoPath + "multichunks/";
 		this.databasePath = repoPath + "databases/";
-		
-		loadTrustStore();
 	}
 
 	@Override
@@ -341,70 +338,15 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		}
 	}
 	
-	private void loadTrustStore() {
-		if (trustStore == null) {
-			try {				
-				trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
-				
-				if (getConnection().getConfig() != null) { // Can be null if uninitialized!					
-					File appDir = getConnection().getConfig().getAppDir();
-					File certStoreFile = new File(appDir, "truststore.jks"); 
-										
-					if (certStoreFile.exists()) {
-						logger.log(Level.INFO, "WebDAV: Loading trust store from " + certStoreFile + " ...");
-
-						FileInputStream trustStoreInputStream = new FileInputStream(certStoreFile); 		 		
-						trustStore.load(trustStoreInputStream, new char[0]);
-						
-						trustStoreInputStream.close();
-					}	
-					else {
-						logger.log(Level.INFO, "WebDAV: Loading trust store (empty, no trust store in config) ...");
-						trustStore.load(null, new char[0]); // Initialize empty store						
-					}
-				}
-				else {
-					logger.log(Level.INFO, "WebDAV: Loading trust store (empty, no config) ...");
-					trustStore.load(null, new char[0]); // Initialize empty store
-				}
-			}
-			catch (Exception e) {
-				throw new RuntimeException(e);
-			}
+	private void storeTrustStore() {
+		if (!hasNewCertificates) {
+			logger.log(Level.INFO, "WebDAV: No new certificates. Nothing to store.");
 		}
 		else {
-			logger.log(Level.INFO, "WebDAV: Trust store already loaded.");			
-		}
-	}
-	
-	private void storeTrustStore() {
-		if (trustStore != null) {
-			if (!hasNewCertificates) {
-				logger.log(Level.INFO, "WebDAV: No new certificates. Nothing to store.");
-			}
-			else {
-				logger.log(Level.INFO, "WebDAV: New certificates. Storing trust store on disk.");
+			logger.log(Level.INFO, "WebDAV: New certificates. Storing trust store on disk.");
 
-				try {
-					if (getConnection().getConfig() != null) { 											
-						File appDir = getConnection().getConfig().getAppDir();
-						File certStoreFile = new File(appDir, "truststore.jks"); 							
-						
-						FileOutputStream trustStoreOutputStream = new FileOutputStream(certStoreFile);
-						trustStore.store(trustStoreOutputStream, new char[0]);
-						
-						trustStoreOutputStream.close();
-						
-						hasNewCertificates = false;
-					}
-					else {
-						logger.log(Level.INFO, "WebDAV: Cannot store trust store; config not initialized.");
-					}
-				}
-				catch (Exception e) {
-					throw new RuntimeException(e);
-				}
-			}
+			UserConfig.storeTrustStore();
+			hasNewCertificates = false;
 		}
 	}
 
@@ -475,12 +417,13 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			
 			private boolean inTrustStore(X509Certificate certificate) throws KeyStoreException {
 				String certAlias = getCertificateAlias(certificate);		
-				return trustStore.containsAlias(certAlias);
+				return UserConfig.getUserTrustStore().containsAlias(certAlias);
 			}
 			
 			private void addToTrustStore(X509Certificate certificate) throws KeyStoreException {
 				String certAlias = getCertificateAlias(certificate);
-				trustStore.setCertificateEntry(certAlias, certificate);
+				UserConfig.getUserTrustStore().setCertificateEntry(certAlias, certificate);
+				
 				hasNewCertificates = true;				
 			}
 			
@@ -494,7 +437,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	
 	private String formatCertificate(X509Certificate cert) {
 		try {			
-			CipherUtil.enableUnlimitedStrength();
+			CipherUtil.enableUnlimitedStrength(); // Dirty!
 			
 			String checksumMd5 = formatChecksum(createChecksum(cert.getEncoded(), "MD5"));
 			String checksumSha1 = formatChecksum(createChecksum(cert.getEncoded(), "SHA1"));
