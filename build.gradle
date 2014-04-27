@@ -10,7 +10,7 @@ configurations {
 project.ext {
 	pluginId = "webdav"
 	pluginName = "WebDAV"
-	pluginVersion = "0.1.0"	
+	pluginVersion = "0.1.0-alpha"	
 	pluginDate = new Date()
 	pluginAppMinVersion = "0.1.2-alpha"
 	pluginRelease = project(':syncany').ext.applicationRelease
@@ -22,6 +22,8 @@ project.ext {
 dependencies {
 	compile		project(':syncany-lib')
 	compile		"com.github.lookfirst:sardine:5.0.1"          
+
+	pluginjar	"com.github.lookfirst:sardine:5.0.1"          
 
 	testCompile	project(path: ':syncany-lib', configuration: 'tests')      
 	testCompile	project(path: ':syncany-util', configuration: 'tests')

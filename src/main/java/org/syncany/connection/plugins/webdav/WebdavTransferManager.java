@@ -34,6 +34,7 @@ import org.syncany.connection.plugins.AbstractTransferManager;
 import org.syncany.connection.plugins.DatabaseRemoteFile;
 import org.syncany.connection.plugins.MultiChunkRemoteFile;
 import org.syncany.connection.plugins.RemoteFile;
+import org.syncany.connection.plugins.RepoRemoteFile;
 import org.syncany.connection.plugins.StorageException;
 import org.syncany.util.FileUtil;
 
@@ -100,13 +101,14 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		connect();
 
 		try {
-			if (!repoExists() && createIfRequired) {
-				logger.log(Level.INFO, "WebDAV: Init called; creating repo directories ... ");
-				
+			logger.log(Level.INFO, "WebDAV: Init called; creating repo directories ... ");				
+
+			if (!testTargetExists() && createIfRequired) {
 				sardine.createDirectory(repoPath);
-				sardine.createDirectory(multichunkPath);
-				sardine.createDirectory(databasePath);
 			}
+			
+			sardine.createDirectory(multichunkPath);
+			sardine.createDirectory(databasePath);
 		}
 		catch (Exception e) {
 			logger.log(Level.SEVERE, "Cannot initialize WebDAV folder.", e);
@@ -238,14 +240,18 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean repoHasWriteAccess() throws StorageException {
-		// TODO not tested
+	public boolean testTargetCanWrite() {
 		try {
-			sardine.createDirectory(repoPath);
-			sardine.delete(repoPath);
-			return true;
+			String testFileUrl = repoPath + "syncany-write-test";
+			
+			sardine.put(testFileUrl, new byte[] { 0x01 }, APPLICATION_CONTENT_TYPE);
+			sardine.delete(testFileUrl);
+			
+			logger.log(Level.INFO, "testTargetCanWrite: Can write, test file created/deleted successfully.");
+			return true;			
 		}
-		catch (IOException e) {
+		catch (Exception e) {
+			logger.log(Level.INFO, "testTargetCanWrite: Can NOT write to target.", e);
 			return false;
 		}
 	}
@@ -258,27 +264,57 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	 * if for directories.
 	 */
 	@Override
-	public boolean repoExists() throws StorageException {
+	public boolean testTargetExists() {
 		try {
 			sardine.list(repoPath);
-			return true;
+			
+			logger.log(Level.INFO, "testTargetExists: Target exists.");
+			return true;					
 		}
-		catch (SardineException e) {
+		catch (Exception e) {
+			logger.log(Level.WARNING, "testTargetExists: Exception thrown while testing if folder exists.", e);
 			return false;
-		}
-		catch (IOException e) {
-			throw new StorageException(e);
 		}
 	}
 
 	@Override
-	public boolean repoIsValid() throws StorageException {
-		// TODO not tested
+	public boolean testTargetCanCreate() {
 		try {
-			return sardine.list(repoPath).size() != 0;
+			if (testTargetExists()) {
+				logger.log(Level.INFO, "testTargetCanCreate: Target already exists, so 'can create' test successful.");
+				return true;
+			}
+			else {
+				sardine.createDirectory(repoPath);
+				sardine.delete(repoPath);
+
+				logger.log(Level.INFO, "testTargetCanCreate: Target can be created (test-created successfully).");
+				return true;
+			}			
 		}
-		catch (IOException e) {
-			throw new StorageException(e);
+		catch (Exception e) {
+			logger.log(Level.INFO, "testTargetCanCreate: Target can NOT be created.", e);
+			return false;
+		}
+	}
+
+	@Override
+	public boolean testRepoFileExists() {
+		try {
+			String repoFileUrl = getRemoteFileUrl(new RepoRemoteFile());
+			
+			if (sardine.exists(repoFileUrl)) {
+				logger.log(Level.INFO, "testRepoFileExists: Repo file exists.");
+				return true;
+			} 
+			else {
+				logger.log(Level.INFO, "testRepoFileExists: Repo file does NOT exist.");
+				return false;
+			}
+		} 
+		catch (Exception e) {
+			logger.log(Level.WARNING, "testRepoFileExists: Exception thrown while testing if repo file exists.", e);
+			return false;
 		}
 	}
 }
