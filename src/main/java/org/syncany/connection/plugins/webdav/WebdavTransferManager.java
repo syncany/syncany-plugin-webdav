@@ -33,6 +33,8 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.net.ssl.SSLPeerUnverifiedException;
+
 import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.conn.ssl.TrustStrategy;
 import org.syncany.config.UserConfig;
@@ -260,7 +262,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean testTargetCanWrite() {
+	public boolean testTargetCanWrite() throws StorageException {
 		try {
 			String testFileUrl = repoPath + "syncany-write-test";
 			
@@ -269,6 +271,10 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			
 			logger.log(Level.INFO, "testTargetCanWrite: Can write, test file created/deleted successfully.");
 			return true;			
+		}
+		catch (SSLPeerUnverifiedException e) {
+			logger.log(Level.SEVERE, "testTargetCanWrite: SSL handshake failed; peer not authenticated.", e);
+			throw new StorageException("SSL handshake failed; peer not authenticated.", e);
 		}
 		catch (Exception e) {
 			logger.log(Level.INFO, "testTargetCanWrite: Can NOT write to target.", e);
@@ -284,12 +290,16 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	 * if for directories.
 	 */
 	@Override
-	public boolean testTargetExists() {
+	public boolean testTargetExists() throws StorageException {
 		try {
 			sardine.list(repoPath);
 			
 			logger.log(Level.INFO, "testTargetExists: Target exists.");
 			return true;					
+		}
+		catch (SSLPeerUnverifiedException e) {
+			logger.log(Level.SEVERE, "testTargetCanWrite: SSL handshake failed; peer not authenticated.", e);
+			throw new StorageException("SSL handshake failed; peer not authenticated.", e);
 		}
 		catch (Exception e) {
 			logger.log(Level.WARNING, "testTargetExists: Exception thrown while testing if folder exists.", e);
@@ -298,7 +308,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean testTargetCanCreate() {
+	public boolean testTargetCanCreate() throws StorageException {
 		try {
 			if (testTargetExists()) {
 				logger.log(Level.INFO, "testTargetCanCreate: Target already exists, so 'can create' test successful.");
@@ -312,6 +322,10 @@ public class WebdavTransferManager extends AbstractTransferManager {
 				return true;
 			}			
 		}
+		catch (SSLPeerUnverifiedException e) {
+			logger.log(Level.SEVERE, "testTargetCanWrite: SSL handshake failed; peer not authenticated.", e);
+			throw new StorageException("SSL handshake failed; peer not authenticated.", e);
+		}
 		catch (Exception e) {
 			logger.log(Level.INFO, "testTargetCanCreate: Target can NOT be created.", e);
 			return false;
@@ -319,7 +333,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean testRepoFileExists() {
+	public boolean testRepoFileExists() throws StorageException {
 		try {
 			String repoFileUrl = getRemoteFileUrl(new RepoRemoteFile());
 			
@@ -332,6 +346,10 @@ public class WebdavTransferManager extends AbstractTransferManager {
 				return false;
 			}
 		} 
+		catch (SSLPeerUnverifiedException e) {
+			logger.log(Level.SEVERE, "testTargetCanWrite: SSL handshake failed; peer not authenticated.", e);
+			throw new StorageException("SSL handshake failed; peer not authenticated.", e);
+		}
 		catch (Exception e) {
 			logger.log(Level.WARNING, "testRepoFileExists: Exception thrown while testing if repo file exists.", e);
 			return false;
@@ -401,7 +419,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 					
 					if (!userTrustsCertificate) {
 						logger.log(Level.INFO, "WebDAV: User does not trust certificate. ABORTING.");
-						return false;
+						throw new RuntimeException("User does not trust certificate. ABORTING.");
 					}
 					
 					logger.log(Level.INFO, "WebDAV: User trusts certificate. Adding to trust store.");
@@ -409,7 +427,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	
 					return true;
 				}
-				catch (Exception e) {
+				catch (KeyStoreException e) {
 					logger.log(Level.SEVERE, "WebDAV: Key store exception.", e);
 					return false;
 				}
@@ -450,9 +468,9 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			sb.append(String.format("Serial number: %d\n", cert.getSerialNumber()));
 			sb.append(String.format("Valid from %s until: %s\n", cert.getNotBefore().toString(), cert.getNotAfter().toString()));
 			sb.append("Certificate fingerprints:\n");
-			sb.append(String.format("	 MD5:  %s\n", checksumMd5));
-			sb.append(String.format("	 SHA1: %s\n", checksumSha1));
-			sb.append(String.format("	 SHA256: %s", checksumSha256));
+			sb.append(String.format(" MD5:  %s\n", checksumMd5));
+			sb.append(String.format(" SHA1: %s\n", checksumSha1));
+			sb.append(String.format(" SHA256: %s", checksumSha256));
 						
 			return sb.toString();
 		}
