@@ -19,7 +19,6 @@ package org.syncany.connection.plugins.webdav;
 
 import java.util.Map;
 
-import org.syncany.config.Config;
 import org.syncany.connection.plugins.Connection;
 import org.syncany.connection.plugins.PluginOptionSpec;
 import org.syncany.connection.plugins.PluginOptionSpec.ValueType;
@@ -31,10 +30,6 @@ public class WebdavConnection extends Connection {
 	private String username;
 	private String password;
 	private boolean secure;
-
-	public WebdavConnection(Config config) {
-		super(config);
-	}
 
 	@Override
 	public void init(Map<String, String> optionValues) throws StorageException {

@@ -17,7 +17,6 @@
  */
 package org.syncany.connection.plugins.webdav;
 
-import org.syncany.config.Config;
 import org.syncany.connection.plugins.Connection;
 import org.syncany.connection.plugins.Plugin;
 import org.syncany.connection.plugins.TransferManager;
@@ -28,8 +27,8 @@ public class WebdavPlugin extends Plugin {
     }    
 
     @Override
-    public Connection createConnection(Config config) {
-        return new WebdavConnection(config);
+    public Connection createConnection() {
+        return new WebdavConnection();
     }
 
 	@Override
