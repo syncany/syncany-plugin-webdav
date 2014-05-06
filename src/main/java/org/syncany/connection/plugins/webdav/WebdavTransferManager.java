@@ -39,6 +39,7 @@ import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.conn.ssl.TrustStrategy;
 import org.syncany.config.UserConfig;
 import org.syncany.connection.plugins.AbstractTransferManager;
+import org.syncany.connection.plugins.ActionRemoteFile;
 import org.syncany.connection.plugins.DatabaseRemoteFile;
 import org.syncany.connection.plugins.MultiChunkRemoteFile;
 import org.syncany.connection.plugins.RemoteFile;
@@ -56,7 +57,6 @@ import com.github.sardine.impl.SardineException;
 import com.github.sardine.impl.SardineImpl;
 
 public class WebdavTransferManager extends AbstractTransferManager {
-	private static final String APPLICATION_CONTENT_TYPE = "application/x-syncany";
 	private static final int HTTP_NOT_FOUND = 404;
 	private static final Logger logger = Logger.getLogger(WebdavTransferManager.class.getSimpleName());
 
@@ -65,8 +65,9 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	private Sardine sardine;	
 
 	private String repoPath;
-	private String multichunkPath;
-	private String databasePath;
+	private String multichunksPath;
+	private String databasesPath;
+	private String actionsPath;
 	
 	public WebdavTransferManager(WebdavConnection connection) {
 		super(connection);
@@ -74,8 +75,9 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		this.sardine = null;
 
 		this.repoPath = connection.getUrl().replaceAll("/$", "") + "/";
-		this.multichunkPath = repoPath + "multichunks/";
-		this.databasePath = repoPath + "databases/";
+		this.multichunksPath = repoPath + "multichunks/";
+		this.databasesPath = repoPath + "databases/";
+		this.actionsPath = repoPath + "actions/";
 	}
 
 	@Override
@@ -129,8 +131,9 @@ public class WebdavTransferManager extends AbstractTransferManager {
 				sardine.createDirectory(repoPath);
 			}
 			
-			sardine.createDirectory(multichunkPath);
-			sardine.createDirectory(databasePath);
+			sardine.createDirectory(multichunksPath);
+			sardine.createDirectory(databasesPath);
+			sardine.createDirectory(actionsPath);
 		}
 		catch (Exception e) {
 			logger.log(Level.SEVERE, "Cannot initialize WebDAV folder.", e);
@@ -169,7 +172,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			logger.log(Level.INFO, "WebDAV: Uploading local file " + localFile + " to " + remoteURL + " ...");
 			InputStream localFileInputStream = new FileInputStream(localFile);
 
-			sardine.put(remoteURL, localFileInputStream, APPLICATION_CONTENT_TYPE);
+			sardine.put(remoteURL, localFileInputStream);
 			localFileInputStream.close();
 		}
 		catch (Exception ex) {
@@ -251,10 +254,13 @@ public class WebdavTransferManager extends AbstractTransferManager {
 
 	private String getRemoteFilePath(Class<? extends RemoteFile> remoteFile) {
 		if (remoteFile.equals(MultiChunkRemoteFile.class)) {
-			return multichunkPath;
+			return multichunksPath;
 		}
 		else if (remoteFile.equals(DatabaseRemoteFile.class)) {
-			return databasePath;
+			return databasesPath;
+		}
+		else if (remoteFile.equals(ActionRemoteFile.class)) {
+			return actionsPath;
 		}
 		else {
 			return repoPath;
@@ -266,7 +272,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		try {
 			String testFileUrl = repoPath + "syncany-write-test";
 			
-			sardine.put(testFileUrl, new byte[] { 0x01 }, APPLICATION_CONTENT_TYPE);
+			sardine.put(testFileUrl, new byte[] { 0x01 });
 			sardine.delete(testFileUrl);
 			
 			logger.log(Level.INFO, "testTargetCanWrite: Can write, test file created/deleted successfully.");
