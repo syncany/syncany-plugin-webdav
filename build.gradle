@@ -24,7 +24,7 @@ dependencies {
 	compile		"com.github.lookfirst:sardine:5.1"          
 	compile		"org.slf4j:slf4j-simple:1.7.6" // Required to silence Sardine logger
         
-	pluginjar	"com.github.lookfirst:sardine:5.0.1"          
+	pluginjar	"com.github.lookfirst:sardine:5.1"          
 	pluginjar	"org.slf4j:slf4j-simple:1.7.6" // Required to silence Sardine logger
 	pluginjar	"org.apache.httpcomponents:httpclient:4.3.1" // Required for Sardine
 
