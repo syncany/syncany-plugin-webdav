@@ -57,9 +57,11 @@ import com.github.sardine.impl.SardineException;
 import com.github.sardine.impl.SardineImpl;
 
 public class WebdavTransferManager extends AbstractTransferManager {
-	private static final int HTTP_NOT_FOUND = 404;
 	private static final Logger logger = Logger.getLogger(WebdavTransferManager.class.getSimpleName());
 
+	private static final String APPLICATION_CONTENT_TYPE = "application/octet-stream";
+	private static final int HTTP_NOT_FOUND = 404;
+	
 	private static boolean hasNewCertificates;
 
 	private Sardine sardine;	
@@ -170,9 +172,10 @@ public class WebdavTransferManager extends AbstractTransferManager {
 
 		try {
 			logger.log(Level.INFO, "WebDAV: Uploading local file " + localFile + " to " + remoteURL + " ...");
-			InputStream localFileInputStream = new FileInputStream(localFile);
 
-			sardine.put(remoteURL, localFileInputStream);
+			InputStream localFileInputStream = new FileInputStream(localFile);
+			sardine.put(remoteURL, localFileInputStream, APPLICATION_CONTENT_TYPE, true, localFile.length());
+			
 			localFileInputStream.close();
 		}
 		catch (Exception ex) {
