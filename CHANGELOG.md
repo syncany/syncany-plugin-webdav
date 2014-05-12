@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-### Release 0.1.3-alpha (Date: tbd.)
+### Release 0.1.3-alpha (Date: 12 May 2014)
 
 - Developer/alpha release (**STILL NOT FOR PRODUCTION USE!**)
 - Features:
@@ -16,6 +16,7 @@ Change Log
 - Bugfixes:
   + Fix S3 plugin connect failure (delete repo file) #128
   + Proper remote locking for cleanup through action files #104
+  + Fix WebDAV plugin/server compatibility #15
   
 ### Release 0.1.2-alpha (Date: 27 Apr 2014)
 
