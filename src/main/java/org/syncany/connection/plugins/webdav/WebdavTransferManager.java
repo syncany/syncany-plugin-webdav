@@ -23,20 +23,32 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.security.KeyStoreException;
+import java.security.MessageDigest;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.net.ssl.SSLPeerUnverifiedException;
+
 import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.conn.ssl.TrustStrategy;
+import org.syncany.config.UserConfig;
 import org.syncany.connection.plugins.AbstractTransferManager;
+import org.syncany.connection.plugins.ActionRemoteFile;
 import org.syncany.connection.plugins.DatabaseRemoteFile;
 import org.syncany.connection.plugins.MultiChunkRemoteFile;
 import org.syncany.connection.plugins.RemoteFile;
 import org.syncany.connection.plugins.RepoRemoteFile;
 import org.syncany.connection.plugins.StorageException;
+import org.syncany.connection.plugins.UserInteractionListener;
+import org.syncany.crypto.CipherUtil;
 import org.syncany.util.FileUtil;
+import org.syncany.util.StringUtil;
 
 import com.github.sardine.DavResource;
 import com.github.sardine.Sardine;
@@ -45,22 +57,29 @@ import com.github.sardine.impl.SardineException;
 import com.github.sardine.impl.SardineImpl;
 
 public class WebdavTransferManager extends AbstractTransferManager {
-	private static final String APPLICATION_CONTENT_TYPE = "application/x-syncany";
-	private static final int HTTP_NOT_FOUND = 404;
 	private static final Logger logger = Logger.getLogger(WebdavTransferManager.class.getSimpleName());
 
-	private Sardine sardine;
+	private static final String APPLICATION_CONTENT_TYPE = "application/octet-stream";
+	private static final int HTTP_NOT_FOUND = 404;
+	
+	private static boolean hasNewCertificates;
+
+	private Sardine sardine;	
 
 	private String repoPath;
-	private String multichunkPath;
-	private String databasePath;
-
+	private String multichunksPath;
+	private String databasesPath;
+	private String actionsPath;
+	
 	public WebdavTransferManager(WebdavConnection connection) {
 		super(connection);
 
+		this.sardine = null;
+
 		this.repoPath = connection.getUrl().replaceAll("/$", "") + "/";
-		this.multichunkPath = repoPath + "multichunks/";
-		this.databasePath = repoPath + "databases/";
+		this.multichunksPath = repoPath + "multichunks/";
+		this.databasesPath = repoPath + "databases/";
+		this.actionsPath = repoPath + "actions/";
 	}
 
 	@Override
@@ -71,21 +90,27 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	@Override
 	public void connect() throws StorageException {
 		if (sardine == null) {
-			logger.log(Level.INFO, "WebDAV: Connect called. Creating Sardine ...");
-			
 			if (getConnection().isSecure()) {
-				final SSLSocketFactory sslSocketFactory = getConnection().getSslSocketFactory();
+				logger.log(Level.INFO, "WebDAV: Connect called. Creating Sardine (SSL!) ...");
 
-				sardine = new SardineImpl() {
-					@Override
-					protected SSLSocketFactory createDefaultSecureSocketFactory() {
-						return sslSocketFactory;
-					}
-				};
-
-				sardine.setCredentials(getConnection().getUsername(), getConnection().getPassword());
+				try {									
+					final SSLSocketFactory sslSocketFactory = initSsl();
+	
+					sardine = new SardineImpl() {
+						@Override
+						protected SSLSocketFactory createDefaultSecureSocketFactory() {
+							return sslSocketFactory;
+						}
+					};
+	
+					sardine.setCredentials(getConnection().getUsername(), getConnection().getPassword());
+				}
+				catch (Exception e) {
+					throw new StorageException(e);
+				}
 			}
 			else {
+				logger.log(Level.INFO, "WebDAV: Connect called. Creating Sardine (non-SSL) ...");
 				sardine = SardineFactory.begin(getConnection().getUsername(), getConnection().getPassword());
 			}
 		}
@@ -93,6 +118,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 
 	@Override
 	public void disconnect() {
+		storeTrustStore();
 		sardine = null;
 	}
 
@@ -107,8 +133,9 @@ public class WebdavTransferManager extends AbstractTransferManager {
 				sardine.createDirectory(repoPath);
 			}
 			
-			sardine.createDirectory(multichunkPath);
-			sardine.createDirectory(databasePath);
+			sardine.createDirectory(multichunksPath);
+			sardine.createDirectory(databasesPath);
+			sardine.createDirectory(actionsPath);
 		}
 		catch (Exception e) {
 			logger.log(Level.SEVERE, "Cannot initialize WebDAV folder.", e);
@@ -145,9 +172,10 @@ public class WebdavTransferManager extends AbstractTransferManager {
 
 		try {
 			logger.log(Level.INFO, "WebDAV: Uploading local file " + localFile + " to " + remoteURL + " ...");
-			InputStream localFileInputStream = new FileInputStream(localFile);
 
-			sardine.put(remoteURL, localFileInputStream, APPLICATION_CONTENT_TYPE);
+			InputStream localFileInputStream = new FileInputStream(localFile);
+			sardine.put(remoteURL, localFileInputStream, APPLICATION_CONTENT_TYPE, true, localFile.length());
+			
 			localFileInputStream.close();
 		}
 		catch (Exception ex) {
@@ -229,10 +257,13 @@ public class WebdavTransferManager extends AbstractTransferManager {
 
 	private String getRemoteFilePath(Class<? extends RemoteFile> remoteFile) {
 		if (remoteFile.equals(MultiChunkRemoteFile.class)) {
-			return multichunkPath;
+			return multichunksPath;
 		}
 		else if (remoteFile.equals(DatabaseRemoteFile.class)) {
-			return databasePath;
+			return databasesPath;
+		}
+		else if (remoteFile.equals(ActionRemoteFile.class)) {
+			return actionsPath;
 		}
 		else {
 			return repoPath;
@@ -240,15 +271,19 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean testTargetCanWrite() {
+	public boolean testTargetCanWrite() throws StorageException {
 		try {
 			String testFileUrl = repoPath + "syncany-write-test";
 			
-			sardine.put(testFileUrl, new byte[] { 0x01 }, APPLICATION_CONTENT_TYPE);
+			sardine.put(testFileUrl, new byte[] { 0x01 });
 			sardine.delete(testFileUrl);
 			
 			logger.log(Level.INFO, "testTargetCanWrite: Can write, test file created/deleted successfully.");
 			return true;			
+		}
+		catch (SSLPeerUnverifiedException e) {
+			logger.log(Level.SEVERE, "testTargetCanWrite: SSL handshake failed; peer not authenticated.", e);
+			throw new StorageException("SSL handshake failed; peer not authenticated.", e);
 		}
 		catch (Exception e) {
 			logger.log(Level.INFO, "testTargetCanWrite: Can NOT write to target.", e);
@@ -264,12 +299,16 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	 * if for directories.
 	 */
 	@Override
-	public boolean testTargetExists() {
+	public boolean testTargetExists() throws StorageException {
 		try {
 			sardine.list(repoPath);
 			
 			logger.log(Level.INFO, "testTargetExists: Target exists.");
 			return true;					
+		}
+		catch (SSLPeerUnverifiedException e) {
+			logger.log(Level.SEVERE, "testTargetCanWrite: SSL handshake failed; peer not authenticated.", e);
+			throw new StorageException("SSL handshake failed; peer not authenticated.", e);
 		}
 		catch (Exception e) {
 			logger.log(Level.WARNING, "testTargetExists: Exception thrown while testing if folder exists.", e);
@@ -278,7 +317,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean testTargetCanCreate() {
+	public boolean testTargetCanCreate() throws StorageException {
 		try {
 			if (testTargetExists()) {
 				logger.log(Level.INFO, "testTargetCanCreate: Target already exists, so 'can create' test successful.");
@@ -292,6 +331,10 @@ public class WebdavTransferManager extends AbstractTransferManager {
 				return true;
 			}			
 		}
+		catch (SSLPeerUnverifiedException e) {
+			logger.log(Level.SEVERE, "testTargetCanWrite: SSL handshake failed; peer not authenticated.", e);
+			throw new StorageException("SSL handshake failed; peer not authenticated.", e);
+		}
 		catch (Exception e) {
 			logger.log(Level.INFO, "testTargetCanCreate: Target can NOT be created.", e);
 			return false;
@@ -299,7 +342,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public boolean testRepoFileExists() {
+	public boolean testRepoFileExists() throws StorageException {
 		try {
 			String repoFileUrl = getRemoteFileUrl(new RepoRemoteFile());
 			
@@ -312,9 +355,162 @@ public class WebdavTransferManager extends AbstractTransferManager {
 				return false;
 			}
 		} 
+		catch (SSLPeerUnverifiedException e) {
+			logger.log(Level.SEVERE, "testTargetCanWrite: SSL handshake failed; peer not authenticated.", e);
+			throw new StorageException("SSL handshake failed; peer not authenticated.", e);
+		}
 		catch (Exception e) {
 			logger.log(Level.WARNING, "testRepoFileExists: Exception thrown while testing if repo file exists.", e);
 			return false;
+		}
+	}
+	
+	private void storeTrustStore() {
+		if (!hasNewCertificates) {
+			logger.log(Level.INFO, "WebDAV: No new certificates. Nothing to store.");
+		}
+		else {
+			logger.log(Level.INFO, "WebDAV: New certificates. Storing trust store on disk.");
+
+			UserConfig.storeTrustStore();
+			hasNewCertificates = false;
+		}
+	}
+
+	private SSLSocketFactory initSsl() throws Exception {
+		TrustStrategy trustStrategy = new TrustStrategy() {
+			@Override
+			public boolean isTrusted(X509Certificate[] certificateChain, String authType) throws CertificateException {
+				logger.log(Level.INFO, "WebDAV: isTrusted("+certificateChain.toString()+", "+authType+")");
+								
+				try {
+					// First check if already in trust store, if so; okay!
+					X509Certificate serverCertificate = certificateChain[0];
+					
+					for (int i = 0; i < certificateChain.length; i++) {
+						X509Certificate certificate = certificateChain[i];
+
+						logger.log(Level.FINE, "WebDAV: Checking certificate validity: " + certificate.getSubjectDN().toString());
+						logger.log(Level.FINEST, "WebDAV:              Full certificate: " + certificate);
+						
+						// Check validity
+						try {
+							certificate.checkValidity();	
+						}
+						catch (CertificateException e) {
+							logger.log(Level.FINE, "WebDAV: Certificate is NOT valid.", e);
+							return false;
+						}
+						
+						logger.log(Level.FINE, "WebDAV: Checking is VALID.");
+						
+						// Certificate found; we trust this, okay!
+						if (inTrustStore(certificate)) {
+							logger.log(Level.FINE, "WebDAV: Certificate found in trust store.");
+							return true;
+						}
+						
+						// Certificate is new; continue ...
+						else {
+							logger.log(Level.FINE, "WebDAV: Certificate NOT found in trust store.");
+						}
+					}
+						
+					// We we reach this code, none of the CAs are known in the trust store
+					// So we ask the user if he/she wants to add the server certificate to the trust store  
+					UserInteractionListener userInteractionListener = getConnection().getUserInteractionListener();
+					
+					if (userInteractionListener == null) {
+						throw new RuntimeException("pluginListener cannot be null!");
+					}
+					
+					boolean userTrustsCertificate = userInteractionListener.onUserConfirm("Unknown SSL/TLS certificate", formatCertificate(serverCertificate), "Do you want to trust this certificate?");
+					
+					if (!userTrustsCertificate) {
+						logger.log(Level.INFO, "WebDAV: User does not trust certificate. ABORTING.");
+						throw new RuntimeException("User does not trust certificate. ABORTING.");
+					}
+					
+					logger.log(Level.INFO, "WebDAV: User trusts certificate. Adding to trust store.");
+					addToTrustStore(serverCertificate);
+	
+					return true;
+				}
+				catch (KeyStoreException e) {
+					logger.log(Level.SEVERE, "WebDAV: Key store exception.", e);
+					return false;
+				}
+			}		
+			
+			private boolean inTrustStore(X509Certificate certificate) throws KeyStoreException {
+				String certAlias = getCertificateAlias(certificate);		
+				return UserConfig.getUserTrustStore().containsAlias(certAlias);
+			}
+			
+			private void addToTrustStore(X509Certificate certificate) throws KeyStoreException {
+				String certAlias = getCertificateAlias(certificate);
+				UserConfig.getUserTrustStore().setCertificateEntry(certAlias, certificate);
+				
+				hasNewCertificates = true;				
+			}
+			
+			private String getCertificateAlias(X509Certificate certificate) {
+				return StringUtil.toHex(certificate.getSignature());
+			}
+		};
+
+		return new SSLSocketFactory(trustStrategy);
+	}
+	
+	private String formatCertificate(X509Certificate cert) {
+		try {			
+			CipherUtil.enableUnlimitedStrength(); // Dirty!
+			
+			String checksumMd5 = formatChecksum(createChecksum(cert.getEncoded(), "MD5"));
+			String checksumSha1 = formatChecksum(createChecksum(cert.getEncoded(), "SHA1"));
+			String checksumSha256 = formatChecksum(createChecksum(cert.getEncoded(), "SHA256"));
+			
+			StringBuilder sb = new StringBuilder();
+			
+			sb.append(String.format("Owner: %s\n", cert.getSubjectDN().getName()));
+			sb.append(String.format("Issuer: %s\n", cert.getIssuerDN().getName()));
+			sb.append(String.format("Serial number: %d\n", cert.getSerialNumber()));
+			sb.append(String.format("Valid from %s until: %s\n", cert.getNotBefore().toString(), cert.getNotAfter().toString()));
+			sb.append("Certificate fingerprints:\n");
+			sb.append(String.format(" MD5:  %s\n", checksumMd5));
+			sb.append(String.format(" SHA1: %s\n", checksumSha1));
+			sb.append(String.format(" SHA256: %s", checksumSha256));
+						
+			return sb.toString();
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
+		}		
+	}
+	
+	private String formatChecksum(byte[] checksum) {
+		StringBuilder sb = new StringBuilder();
+		
+		for (int i=0; i<checksum.length; i++) {
+			sb.append(StringUtil.toHex(new byte[] { checksum[i] }).toUpperCase());
+			
+			if (i < checksum.length-1) {
+				sb.append(":");
+			}
+		}
+		
+		return sb.toString();
+	}
+
+	private byte[] createChecksum(byte[] data, String digestAlgorithm) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance(digestAlgorithm);
+			digest.update(data, 0, data.length);
+			
+			return digest.digest();
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
 		}
 	}
 }
