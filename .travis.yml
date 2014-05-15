@@ -23,7 +23,8 @@ before_install:
 - lftp -v
 
 # Disable 'gradle' command (gradlew used)
-- GRADLE_BIN=$(which gradle); sudo echo -e '#!/bin/sh\necho SYSTEM GRADLE DISABLED' > $GRADLE_BIN; sudo chmod +x $GRADLE_BIN
+- export PATH=`echo ${PATH} | awk -v RS=: -v ORS=: '/gradle/ {next} {print}'`
+- sudo echo -e '#!/bin/sh\necho Travis-CI Gradle command disabled' > /usr/local/bin/gradle; sudo chmod +x /usr/local/bin/gradle
 
 script:
 - core/gradlew clean pluginJar
