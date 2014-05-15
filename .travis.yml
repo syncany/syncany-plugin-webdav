@@ -23,7 +23,7 @@ before_install:
 - lftp -v
 
 # Disable 'gradle' command (gradlew used)
-- GRADLE_BIN=$(which gradle); sudo echo -e '#!/bin/sh\necho SYSTEM GRADLE DISABLED' > $GRADLE_BIN; chmod +x $GRADLE_BIN
+- GRADLE_BIN=$(which gradle); sudo echo -e '#!/bin/sh\necho SYSTEM GRADLE DISABLED' > $GRADLE_BIN; sudo chmod +x $GRADLE_BIN
 
 script:
 - core/gradlew clean pluginJar
