@@ -22,12 +22,8 @@ before_install:
 - sudo apt-get install -y -q lftp
 - lftp -v
 
-# Disable 'gradle' command (gradlew used)
-- echo $PATH
-- export PATH=`echo ${PATH} | awk -v RS=: -v ORS=: '/gradle/ {next} {print}'`
-- echo $PATH
-- sudo sh -c 'echo "" > /usr/local/bin/gradle'; sudo chmod +x /usr/local/bin/gradle
-#- sudo sh -c 'echo "" > $(which gradle)'; sudo chmod +x $(which gradle)
+install:
+- core/gradlew -v
 
 script:
 - core/gradlew clean pluginJar
