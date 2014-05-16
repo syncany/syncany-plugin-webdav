@@ -33,5 +33,5 @@ dependencies {
 	testCompile	"junit:junit:4.9"	
 }
 
-apply from: 'core/gradle/gradle/pluginjar.gradle'
+apply from: 'core/gradle/gradle/plugins.jar.gradle'
 

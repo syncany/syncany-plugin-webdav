@@ -1,1 +1,1 @@
-apply from: 'core/gradle/gradle/pluginsettings.gradle'
+apply from: 'core/gradle/gradle/plugins.settings.gradle'
