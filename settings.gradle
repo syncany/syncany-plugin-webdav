@@ -1,7 +1,1 @@
-include 'syncany'
-include 'syncany-lib'
-include 'syncany-util'
-
-project(':syncany').projectDir = new File('core')
-project(':syncany-lib').projectDir = new File('core/syncany-lib')
-project(':syncany-util').projectDir = new File('core/syncany-util')
+apply from: 'core/gradle/gradle/plugins.settings.gradle'
