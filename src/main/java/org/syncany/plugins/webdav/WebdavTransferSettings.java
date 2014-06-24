@@ -15,17 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.syncany.connection.plugins.webdav;
+package org.syncany.plugins.webdav;
 
 import java.util.Map;
 
-import org.syncany.connection.plugins.Connection;
-import org.syncany.connection.plugins.PluginOptionSpec;
-import org.syncany.connection.plugins.PluginOptionSpec.ValueType;
-import org.syncany.connection.plugins.PluginOptionSpecs;
-import org.syncany.connection.plugins.StorageException;
+import org.syncany.plugins.PluginOptionSpec;
+import org.syncany.plugins.PluginOptionSpec.ValueType;
+import org.syncany.plugins.PluginOptionSpecs;
+import org.syncany.plugins.StorageException;
+import org.syncany.plugins.transfer.TransferSettings;
 
-public class WebdavConnection extends Connection {
+public class WebdavTransferSettings extends TransferSettings {
 	private String url;
 	private String username;
 	private String password;
@@ -52,7 +52,7 @@ public class WebdavConnection extends Connection {
 
 	@Override
 	public String toString() {
-		return WebdavConnection.class.getSimpleName() + "[url=" + url + ", username=" + username + "]";
+		return WebdavTransferSettings.class.getSimpleName() + "[url=" + url + ", username=" + username + "]";
 	}
 
 	public String getUrl() {

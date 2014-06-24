@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.syncany.connection.plugins.webdav;
+package org.syncany.plugins.webdav;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -35,19 +35,19 @@ import java.util.logging.Logger;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.conn.ssl.TrustStrategy;
 import org.syncany.config.UserConfig;
-import org.syncany.connection.plugins.AbstractTransferManager;
-import org.syncany.connection.plugins.ActionRemoteFile;
-import org.syncany.connection.plugins.DatabaseRemoteFile;
-import org.syncany.connection.plugins.MultiChunkRemoteFile;
-import org.syncany.connection.plugins.RemoteFile;
-import org.syncany.connection.plugins.RepoRemoteFile;
-import org.syncany.connection.plugins.StorageException;
-import org.syncany.connection.plugins.UserInteractionListener;
 import org.syncany.crypto.CipherUtil;
-import org.syncany.util.FileUtil;
+import org.syncany.plugins.StorageException;
+import org.syncany.plugins.UserInteractionListener;
+import org.syncany.plugins.transfer.AbstractTransferManager;
+import org.syncany.plugins.transfer.files.ActionRemoteFile;
+import org.syncany.plugins.transfer.files.DatabaseRemoteFile;
+import org.syncany.plugins.transfer.files.MultiChunkRemoteFile;
+import org.syncany.plugins.transfer.files.RemoteFile;
+import org.syncany.plugins.transfer.files.RepoRemoteFile;
 import org.syncany.util.StringUtil;
 
 import com.github.sardine.DavResource;
@@ -71,7 +71,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	private String databasesPath;
 	private String actionsPath;
 	
-	public WebdavTransferManager(WebdavConnection connection) {
+	public WebdavTransferManager(WebdavTransferSettings connection) {
 		super(connection);
 
 		this.sardine = null;
@@ -83,8 +83,8 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	}
 
 	@Override
-	public WebdavConnection getConnection() {
-		return (WebdavConnection) super.getConnection();
+	public WebdavTransferSettings getConnection() {
+		return (WebdavTransferSettings) super.getConnection();
 	}
 
 	@Override
@@ -154,7 +154,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			InputStream webdavFileInputStream = sardine.get(remoteURL);
 			FileOutputStream localFileOutputStream = new FileOutputStream(localFile);
 
-			FileUtil.appendToOutputStream(webdavFileInputStream, localFileOutputStream);
+			IOUtils.copy(webdavFileInputStream, localFileOutputStream);
 
 			localFileOutputStream.close();
 			webdavFileInputStream.close();

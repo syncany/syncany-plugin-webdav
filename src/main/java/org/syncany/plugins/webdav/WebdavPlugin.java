@@ -15,24 +15,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.syncany.connection.plugins.webdav;
+package org.syncany.plugins.webdav;
 
-import org.syncany.connection.plugins.Connection;
-import org.syncany.connection.plugins.Plugin;
-import org.syncany.connection.plugins.TransferManager;
+import org.syncany.plugins.transfer.TransferManager;
+import org.syncany.plugins.transfer.TransferPlugin;
+import org.syncany.plugins.transfer.TransferSettings;
 
-public class WebdavPlugin extends Plugin {
+public class WebdavPlugin extends TransferPlugin {
     public WebdavPlugin() {
     	super("webdav");
     }    
 
     @Override
-    public Connection createConnection() {
-        return new WebdavConnection();
+    public WebdavTransferSettings createSettings() {
+        return new WebdavTransferSettings();
     }
 
 	@Override
-	public TransferManager createTransferManager(Connection connection) {
-		return new WebdavTransferManager((WebdavConnection) connection);
+	public TransferManager createTransferManager(TransferSettings connection) {
+		return new WebdavTransferManager((WebdavTransferSettings) connection);
 	}	
 }
