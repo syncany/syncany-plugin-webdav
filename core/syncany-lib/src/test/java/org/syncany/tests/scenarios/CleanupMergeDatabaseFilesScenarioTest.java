@@ -24,15 +24,15 @@ import java.io.File;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.Test;
-import org.syncany.connection.plugins.local.LocalConnection;
 import org.syncany.database.DatabaseConnectionFactory;
 import org.syncany.operations.cleanup.CleanupOperationOptions;
 import org.syncany.operations.status.StatusOperationOptions;
 import org.syncany.operations.up.UpOperationOptions;
-import org.syncany.tests.util.TestAssertUtil;
+import org.syncany.plugins.local.LocalConnection;
 import org.syncany.tests.util.TestClient;
 import org.syncany.tests.util.TestConfigUtil;
 import org.syncany.tests.util.TestFileUtil;
+import org.syncany.tests.util.TestSqlUtil;
 import org.syncany.util.FileUtil;
 import org.syncany.util.StringUtil;
 
@@ -49,12 +49,9 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		CleanupOperationOptions cleanupOptionsOnlyMergeDatabases = new CleanupOperationOptions();
 		cleanupOptionsOnlyMergeDatabases.setMergeRemoteFiles(true);
 		cleanupOptionsOnlyMergeDatabases.setRemoveOldVersions(false);
-		cleanupOptionsOnlyMergeDatabases.setRepackageMultiChunks(false);
 		
 		UpOperationOptions upOperationOptionsNoCleanup = new UpOperationOptions();
 		upOperationOptionsNoCleanup.setForceUploadEnabled(true);
-		upOperationOptionsNoCleanup.setCleanupEnabled(true);	
-		upOperationOptionsNoCleanup.setCleanupOptions(cleanupOptionsOnlyMergeDatabases);
 
 		// Run preparations
 		int[] clientUpSequence = new int[] {
@@ -129,7 +126,6 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		CleanupOperationOptions cleanupOptionsOnlyMergeDatabases = new CleanupOperationOptions();
 		cleanupOptionsOnlyMergeDatabases.setMergeRemoteFiles(true);
 		cleanupOptionsOnlyMergeDatabases.setRemoveOldVersions(true);
-		cleanupOptionsOnlyMergeDatabases.setRepackageMultiChunks(false);
 		cleanupOptionsOnlyMergeDatabases.setKeepVersionsCount(5);		
 				
 		StatusOperationOptions statusOptionsForceChecksum = new StatusOperationOptions();
@@ -138,8 +134,6 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		UpOperationOptions upOperationOptionsWithCleanupForce = new UpOperationOptions();
 		upOperationOptionsWithCleanupForce.setStatusOptions(statusOptionsForceChecksum);
 		upOperationOptionsWithCleanupForce.setForceUploadEnabled(true);		
-		upOperationOptionsWithCleanupForce.setCleanupEnabled(true);	
-		upOperationOptionsWithCleanupForce.setCleanupOptions(cleanupOptionsOnlyMergeDatabases);
 
 
 		// Run preparations
@@ -216,7 +210,7 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000007").exists());
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000008").exists());
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000009").exists());
-		assertEquals("1", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("1", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionA));
 
 		clientB.down();
@@ -226,7 +220,7 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000006").exists());
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000007").exists());
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000008").exists());
-		assertEquals("1", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='" + fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("1", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='" + fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionB));
 		
 		clientA.down();
@@ -236,7 +230,7 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000009").exists());	
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000010").exists());	
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000011").exists());
-		assertEquals("1", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("1", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionA));
 
 		clientB.down();
@@ -246,7 +240,7 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000008").exists());
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000009").exists());
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000010").exists());
-		assertEquals("1", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='" + fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("1", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='" + fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionB));
 				
 		clientB.down();
@@ -256,7 +250,7 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000010").exists());
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000011").exists());
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000012").exists());
-		assertEquals("1", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='" + fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("1", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='" + fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionB));
 
 		clientA.down();
@@ -266,7 +260,7 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000011").exists());	
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000012").exists());	
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000013").exists());
-		assertEquals("0", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("0", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionA));
 
 		// ^^^ Old chunk deleted!
@@ -278,7 +272,7 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000013").exists());	
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000014").exists());	
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000015").exists());
-		assertEquals("0", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("0", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionA));
 		
 		clientB.down();
@@ -288,7 +282,7 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000012").exists());
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000013").exists());
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-B-0000000014").exists());
-		assertEquals("0", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='" + fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("0", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='" + fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionB));
 
 		clientA.down();
@@ -298,7 +292,7 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000015").exists());	
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000016").exists());	
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000017").exists());
-		assertEquals("0", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("0", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionA));
 		
 		clientA.down();
@@ -308,16 +302,16 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000017").exists());	
 		assertTrue(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000018").exists());	
 		assertFalse(new File(testConnection.getRepositoryPath(), "databases/db-A-0000000019").exists());
-		assertEquals("0", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("0", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionA));		
 		
 		// Sync them up
 		clientA.down();
-		assertEquals("0", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("0", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionA));
 		
 		clientB.down();
-		assertEquals("0", TestAssertUtil.runSqlQuery("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
+		assertEquals("0", TestSqlUtil.runSqlSelect("select count(*) from chunk where checksum='"+fileAndChunkChecksumThatRaisesException+"'", 
 				databaseConnectionB));
 		
 		assertSqlDatabaseEquals(clientA.getDatabaseFile(), clientB.getDatabaseFile());		
@@ -344,19 +338,15 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		CleanupOperationOptions cleanupOptionsKeep1 = new CleanupOperationOptions();
 		cleanupOptionsKeep1.setMergeRemoteFiles(true);
 		cleanupOptionsKeep1.setRemoveOldVersions(true);
-		cleanupOptionsKeep1.setRepackageMultiChunks(false);
 		cleanupOptionsKeep1.setKeepVersionsCount(1);		
 		
 		StatusOperationOptions statusOptionsForceChecksum = new StatusOperationOptions();
 		statusOptionsForceChecksum.setForceChecksum(true);		
 
 		UpOperationOptions upNoCleanupForceChecksum = new UpOperationOptions();
-		upNoCleanupForceChecksum.setCleanupEnabled(false);
 		upNoCleanupForceChecksum.setStatusOptions(statusOptionsForceChecksum);
 
 		UpOperationOptions upWithCleanupKeep1ForceChecksum = new UpOperationOptions();
-		upWithCleanupKeep1ForceChecksum.setCleanupEnabled(true);
-		upWithCleanupKeep1ForceChecksum.setCleanupOptions(cleanupOptionsKeep1);
 		upWithCleanupKeep1ForceChecksum.setStatusOptions(statusOptionsForceChecksum);
 
 		clientA.createNewFile("fileA");
@@ -410,19 +400,15 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		CleanupOperationOptions cleanupOptionsKeep1 = new CleanupOperationOptions();
 		cleanupOptionsKeep1.setMergeRemoteFiles(true);
 		cleanupOptionsKeep1.setRemoveOldVersions(true);
-		cleanupOptionsKeep1.setRepackageMultiChunks(false);
 		cleanupOptionsKeep1.setKeepVersionsCount(1);		
 		
 		StatusOperationOptions statusOptionsForceChecksum = new StatusOperationOptions();
 		statusOptionsForceChecksum.setForceChecksum(true);		
 
 		UpOperationOptions upNoCleanupForceChecksum = new UpOperationOptions();
-		upNoCleanupForceChecksum.setCleanupEnabled(false);
 		upNoCleanupForceChecksum.setStatusOptions(statusOptionsForceChecksum);
 
 		UpOperationOptions upWithCleanupKeep1ForceChecksum = new UpOperationOptions();
-		upWithCleanupKeep1ForceChecksum.setCleanupEnabled(true);
-		upWithCleanupKeep1ForceChecksum.setCleanupOptions(cleanupOptionsKeep1);
 		upWithCleanupKeep1ForceChecksum.setStatusOptions(statusOptionsForceChecksum);
 
 		clientB.createNewFile("fileB");		
@@ -473,19 +459,15 @@ public class CleanupMergeDatabaseFilesScenarioTest {
 		CleanupOperationOptions cleanupOptionsKeep1 = new CleanupOperationOptions();
 		cleanupOptionsKeep1.setMergeRemoteFiles(true);
 		cleanupOptionsKeep1.setRemoveOldVersions(true);
-		cleanupOptionsKeep1.setRepackageMultiChunks(false);
 		cleanupOptionsKeep1.setKeepVersionsCount(1);		
 		
 		StatusOperationOptions statusOptionsForceChecksum = new StatusOperationOptions();
 		statusOptionsForceChecksum.setForceChecksum(true);		
 
 		UpOperationOptions upNoCleanupForceChecksum = new UpOperationOptions();
-		upNoCleanupForceChecksum.setCleanupEnabled(false);
 		upNoCleanupForceChecksum.setStatusOptions(statusOptionsForceChecksum);
 
 		UpOperationOptions upWithCleanupKeep1ForceChecksum = new UpOperationOptions();
-		upWithCleanupKeep1ForceChecksum.setCleanupEnabled(true);
-		upWithCleanupKeep1ForceChecksum.setCleanupOptions(cleanupOptionsKeep1);
 		upWithCleanupKeep1ForceChecksum.setStatusOptions(statusOptionsForceChecksum);
 		
 		// First round

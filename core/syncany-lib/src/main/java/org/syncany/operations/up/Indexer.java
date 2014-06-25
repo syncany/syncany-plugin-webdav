@@ -175,8 +175,10 @@ public class Indexer {
 			if (!FileUtil.exists(lastLocalVersionOnDisk) || newFileWithSameName != null) {
 				PartialFileHistory deletedFileHistory = new PartialFileHistory(fileHistory.getFileHistoryId());
 				FileVersion deletedVersion = lastLocalVersion.clone();
+				
 				deletedVersion.setStatus(FileStatus.DELETED);
 				deletedVersion.setVersion(fileHistory.getLastVersion().getVersion()+1);
+				deletedVersion.setUpdated(new Date());
 				
 				logger.log(Level.FINER, "  + Deleted: Adding DELETED version: {0}", deletedVersion);
 				logger.log(Level.FINER, "                           based on: {0}", lastLocalVersion);
@@ -561,7 +563,9 @@ public class Indexer {
 		
 		@Override
 		public void onFinish() {
-			// Nothing.
+			if (listener != null) {
+				listener.onIndexEnd();
+			}
 		}
 
 		/**

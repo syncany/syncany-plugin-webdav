@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.logging.Level;
 
 import org.syncany.config.Logging;
-import org.syncany.tests.connection.plugins.AbstractTransferManagerTest;
+import org.syncany.tests.plugins.AbstractTransferManagerTest;
 
 public class WebdavTransferManagerTest extends AbstractTransferManagerTest {
 	static {
