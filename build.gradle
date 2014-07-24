@@ -10,7 +10,7 @@ configurations {
 project.ext {
 	pluginId = "webdav"
 	pluginName = "WebDAV"
-	pluginVersion = "0.1.6-alpha"	
+	pluginVersion = "0.1.7-alpha"	
 	pluginDate = new Date()
 	pluginAppMinVersion = "0.1.6-alpha"
 	pluginRelease = rootProject.ext.applicationRelease
