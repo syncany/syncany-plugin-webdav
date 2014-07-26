@@ -164,6 +164,15 @@ public class PluginCommand extends Command {
 	}
 
 	private void printResultInstall(PluginOperationResult operationResult) {
+		// Print conflict warning
+		List<String> conflictingPluginIds = operationResult.getConflictingPluginIds();
+		
+		if (conflictingPluginIds != null && conflictingPluginIds.size() > 0) {
+			out.printf("WARNING: Installed plugin conflicts with other installed plugins: %s\n", StringUtil.join(conflictingPluginIds, ", "));
+			out.printf("This means you CANNOT use these plugins simultaneously in the daemon.\n");		
+		}
+		
+		// Print regular result
 		if (operationResult.getResultCode() == PluginResultCode.OK) {
 			out.printf("Plugin successfully installed from %s\n", operationResult.getSourcePluginPath());
 			out.printf("Install location: %s\n", operationResult.getTargetPluginPath());
