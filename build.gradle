@@ -1,5 +1,3 @@
-//evaluationDependsOn(':syncany')
-
 apply plugin: 'java'
 apply plugin: 'eclipse'
 
@@ -14,7 +12,7 @@ project.ext {
 	pluginDate = new Date()
 	pluginAppMinVersion = "0.1.7-alpha"
 	pluginRelease = rootProject.ext.applicationRelease
-    conflictsWith = "s3"
+	pluginConflictsWith = "s3"
 	
 	pluginVersionSnapshot = rootProject.ext.applicationVersionSnapshot
 	pluginVersionFull = "${pluginVersion}${pluginVersionSnapshot}"	
