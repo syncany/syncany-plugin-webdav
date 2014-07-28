@@ -33,10 +33,14 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLPeerUnverifiedException;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLContexts;
 import org.apache.http.conn.ssl.TrustStrategy;
 import org.syncany.config.UserConfig;
 import org.syncany.crypto.CipherUtil;
@@ -94,11 +98,11 @@ public class WebdavTransferManager extends AbstractTransferManager {
 				logger.log(Level.INFO, "WebDAV: Connect called. Creating Sardine (SSL!) ...");
 
 				try {									
-					final SSLSocketFactory sslSocketFactory = initSsl();
+					final ConnectionSocketFactory sslSocketFactory = initSsl();
 	
 					sardine = new SardineImpl() {
 						@Override
-						protected SSLSocketFactory createDefaultSecureSocketFactory() {
+						protected ConnectionSocketFactory createDefaultSecureSocketFactory() {
 							return sslSocketFactory;
 						}
 					};
@@ -377,7 +381,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		}
 	}
 
-	private SSLSocketFactory initSsl() throws Exception {
+	private ConnectionSocketFactory initSsl() throws Exception {
 		TrustStrategy trustStrategy = new TrustStrategy() {
 			@Override
 			public boolean isTrusted(X509Certificate[] certificateChain, String authType) throws CertificateException {
@@ -459,7 +463,9 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			}
 		};
 
-		return new SSLSocketFactory(trustStrategy);
+		SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(null, trustStrategy).useTLS().build();
+				
+		return new SSLConnectionSocketFactory(sslContext, new AllowAllHostnameVerifier());
 	}
 	
 	private String formatCertificate(X509Certificate cert) {
