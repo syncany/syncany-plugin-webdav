@@ -12,7 +12,7 @@ project.ext {
 	pluginDate = new Date()
 	pluginAppMinVersion = "0.1.7-alpha"
 	pluginRelease = rootProject.ext.applicationRelease
-	pluginConflictsWith = "s3"
+	pluginConflictsWith = ""
 	
 	pluginVersionSnapshot = rootProject.ext.applicationVersionSnapshot
 	pluginVersionFull = "${pluginVersion}${pluginVersionSnapshot}"	
