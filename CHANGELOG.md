@@ -8,11 +8,13 @@ Change Log
   + Atomicity for changing operations (up/cleanup, major!) #64
   + Combined `sy` and `syd` script into one #210
   + Add folder to daemon config in `sy init` #215/#153
+  + Bash completion for Arch Linux users #220
 - Bugfixes and other things:
   + Fix daemon tests #185
   + Rewrite bash completion, fixes --localdir issue #209
   + Fix issue with `sy daemon force-stop` #212
   + Fix multichunk decryption failure cache issue (part of #59)
+  + Make syncany://-links Windows CMD compatible #219/#225
 
 ### Syncany 0.1.9-alpha (Date: 28 Aug 2014)
 - Developer/alpha release (**STILL NOT FOR PRODUCTION USE!**)
