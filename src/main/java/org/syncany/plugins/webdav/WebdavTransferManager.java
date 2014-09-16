@@ -42,16 +42,20 @@ import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLContexts;
 import org.apache.http.conn.ssl.TrustStrategy;
+import org.syncany.config.Config;
 import org.syncany.config.UserConfig;
 import org.syncany.crypto.CipherUtil;
-import org.syncany.plugins.StorageException;
 import org.syncany.plugins.UserInteractionListener;
 import org.syncany.plugins.transfer.AbstractTransferManager;
+import org.syncany.plugins.transfer.StorageException;
+import org.syncany.plugins.transfer.StorageMoveException;
 import org.syncany.plugins.transfer.files.ActionRemoteFile;
 import org.syncany.plugins.transfer.files.DatabaseRemoteFile;
-import org.syncany.plugins.transfer.files.MultiChunkRemoteFile;
+import org.syncany.plugins.transfer.files.MultichunkRemoteFile;
 import org.syncany.plugins.transfer.files.RemoteFile;
-import org.syncany.plugins.transfer.files.RepoRemoteFile;
+import org.syncany.plugins.transfer.files.SyncanyRemoteFile;
+import org.syncany.plugins.transfer.files.TempRemoteFile;
+import org.syncany.plugins.transfer.files.TransactionRemoteFile;
 import org.syncany.util.StringUtil;
 
 import com.github.sardine.DavResource;
@@ -74,9 +78,11 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	private String multichunksPath;
 	private String databasesPath;
 	private String actionsPath;
+	private String transactionsPath;
+	private String tempPath;
 	
-	public WebdavTransferManager(WebdavTransferSettings connection) {
-		super(connection);
+	public WebdavTransferManager(WebdavTransferSettings connection, Config config) {
+		super(connection, config);
 
 		this.sardine = null;
 
@@ -84,17 +90,19 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		this.multichunksPath = repoPath + "multichunks/";
 		this.databasesPath = repoPath + "databases/";
 		this.actionsPath = repoPath + "actions/";
+		this.transactionsPath = repoPath + "transactions/";
+		this.tempPath = repoPath + "temporary/";
 	}
 
 	@Override
-	public WebdavTransferSettings getConnection() {
-		return (WebdavTransferSettings) super.getConnection();
+	public WebdavTransferSettings getSettings() {
+		return (WebdavTransferSettings) super.getSettings();
 	}
 
 	@Override
 	public void connect() throws StorageException {
 		if (sardine == null) {
-			if (getConnection().isSecure()) {
+			if (getSettings().isSecure()) {
 				logger.log(Level.INFO, "WebDAV: Connect called. Creating Sardine (SSL!) ...");
 
 				try {									
@@ -107,7 +115,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 						}
 					};
 	
-					sardine.setCredentials(getConnection().getUsername(), getConnection().getPassword());
+					sardine.setCredentials(getSettings().getUsername(), getSettings().getPassword());
 				}
 				catch (Exception e) {
 					throw new StorageException(e);
@@ -115,7 +123,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			}
 			else {
 				logger.log(Level.INFO, "WebDAV: Connect called. Creating Sardine (non-SSL) ...");
-				sardine = SardineFactory.begin(getConnection().getUsername(), getConnection().getPassword());
+				sardine = SardineFactory.begin(getSettings().getUsername(), getSettings().getPassword());
 			}
 		}
 	}
@@ -140,6 +148,8 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			sardine.createDirectory(multichunksPath);
 			sardine.createDirectory(databasesPath);
 			sardine.createDirectory(actionsPath);
+			sardine.createDirectory(transactionsPath);
+			sardine.createDirectory(tempPath);
 		}
 		catch (Exception e) {
 			logger.log(Level.SEVERE, "Cannot initialize WebDAV folder.", e);
@@ -254,13 +264,28 @@ public class WebdavTransferManager extends AbstractTransferManager {
 			throw new StorageException(ex);
 		}
 	}
+	
+	@Override
+	public void move(RemoteFile sourceFile, RemoteFile targetFile) throws StorageException {
+		connect();
+		
+		String sourceURL = getRemoteFileUrl(sourceFile);
+		String targetURL = getRemoteFileUrl(targetFile);
+
+		try {		
+			sardine.move(sourceURL, targetURL);
+		}
+		catch (IOException e) {
+			throw new StorageMoveException("Unable to move " + sourceURL + " to " + targetURL, e);
+		}
+	}
 
 	private String getRemoteFileUrl(RemoteFile remoteFile) {
 		return getRemoteFilePath(remoteFile.getClass()) + remoteFile.getName();
 	}
 
 	private String getRemoteFilePath(Class<? extends RemoteFile> remoteFile) {
-		if (remoteFile.equals(MultiChunkRemoteFile.class)) {
+		if (remoteFile.equals(MultichunkRemoteFile.class)) {
 			return multichunksPath;
 		}
 		else if (remoteFile.equals(DatabaseRemoteFile.class)) {
@@ -268,6 +293,12 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		}
 		else if (remoteFile.equals(ActionRemoteFile.class)) {
 			return actionsPath;
+		}
+		else if (remoteFile.equals(TransactionRemoteFile.class)) {
+			return transactionsPath;
+		}
+		else if (remoteFile.equals(TempRemoteFile.class)) {
+			return tempPath;
 		}
 		else {
 			return repoPath;
@@ -348,7 +379,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 	@Override
 	public boolean testRepoFileExists() throws StorageException {
 		try {
-			String repoFileUrl = getRemoteFileUrl(new RepoRemoteFile());
+			String repoFileUrl = getRemoteFileUrl(new SyncanyRemoteFile());
 			
 			if (sardine.exists(repoFileUrl)) {
 				logger.log(Level.INFO, "testRepoFileExists: Repo file exists.");
@@ -422,7 +453,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 						
 					// We we reach this code, none of the CAs are known in the trust store
 					// So we ask the user if he/she wants to add the server certificate to the trust store  
-					UserInteractionListener userInteractionListener = getConnection().getUserInteractionListener();
+					UserInteractionListener userInteractionListener = getSettings().getUserInteractionListener();
 					
 					if (userInteractionListener == null) {
 						throw new RuntimeException("pluginListener cannot be null!");

@@ -22,7 +22,7 @@ import java.util.Map;
 import org.syncany.plugins.PluginOptionSpec;
 import org.syncany.plugins.PluginOptionSpec.ValueType;
 import org.syncany.plugins.PluginOptionSpecs;
-import org.syncany.plugins.StorageException;
+import org.syncany.plugins.transfer.StorageException;
 import org.syncany.plugins.transfer.TransferSettings;
 
 public class WebdavTransferSettings extends TransferSettings {
