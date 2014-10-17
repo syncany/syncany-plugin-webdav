@@ -30,6 +30,7 @@ import java.util.logging.Logger;
 
 import org.syncany.chunk.Deduper;
 import org.syncany.config.Config;
+import org.syncany.config.LocalEventBus;
 import org.syncany.database.ChunkEntry;
 import org.syncany.database.DatabaseVersion;
 import org.syncany.database.DatabaseVersionHeader;
@@ -45,9 +46,11 @@ import org.syncany.database.dao.DatabaseXmlSerializer;
 import org.syncany.operations.AbstractTransferOperation;
 import org.syncany.operations.ChangeSet;
 import org.syncany.operations.cleanup.CleanupOperation;
+import org.syncany.operations.daemon.messages.UpEndSyncExternalEvent;
+import org.syncany.operations.daemon.messages.UpStartSyncExternalEvent;
 import org.syncany.operations.down.DownOperation;
 import org.syncany.operations.ls_remote.LsRemoteOperation;
-import org.syncany.operations.ls_remote.LsRemoteOperation.LsRemoteOperationResult;
+import org.syncany.operations.ls_remote.LsRemoteOperationResult;
 import org.syncany.operations.status.StatusOperation;
 import org.syncany.operations.status.StatusOperationResult;
 import org.syncany.operations.up.UpOperationResult.UpResultCode;
@@ -81,27 +84,24 @@ public class UpOperation extends AbstractTransferOperation {
 
 	public static final String ACTION_ID = "up";
 
+	private LocalEventBus eventBus;
+
 	private UpOperationOptions options;
 	private UpOperationResult result;
 
 	private SqlDatabase localDatabase;
-	private UpOperationListener listener;
 	private RemoteTransaction remoteTransaction;
 
 	public UpOperation(Config config) {
-		this(config, new UpOperationOptions(), null);
+		this(config, new UpOperationOptions());
 	}
 
-	public UpOperation(Config config, UpOperationListener listener) {
-		this(config, new UpOperationOptions(), listener);
-	}
-
-	public UpOperation(Config config, UpOperationOptions options, UpOperationListener listener) {
+	public UpOperation(Config config, UpOperationOptions options) {
 		super(config, ACTION_ID);
 
+		this.eventBus = LocalEventBus.getInstance();		
 		this.options = options;
 		this.result = new UpOperationResult();
-		this.listener = listener;
 		this.localDatabase = new SqlDatabase(config);
 		this.remoteTransaction = new RemoteTransaction(config, transferManager);
 	}
@@ -111,12 +111,13 @@ public class UpOperation extends AbstractTransferOperation {
 		logger.log(Level.INFO, "");
 		logger.log(Level.INFO, "Running 'Sync up' at client " + config.getMachineName() + " ...");
 		logger.log(Level.INFO, "--------------------------------------------");
-
+		
 		if (!checkPreconditions()) {
 			return result;
 		}
-
+		
 		// Upload action file (lock for cleanup)
+		fireStartEvent();
 		startOperation();
 
 		// TODO [medium/high] Remove this and construct mechanism to resume uploads
@@ -131,11 +132,13 @@ public class UpOperation extends AbstractTransferOperation {
 		if (newDatabaseVersion.getFileHistories().size() == 0) {
 			logger.log(Level.INFO, "Local database is up-to-date. NOTHING TO DO!");
 			result.setResultCode(UpResultCode.OK_NO_CHANGES);
-
+			
 			finishOperation();
+			fireEndEvent();
+
 			return result;
 		}
-
+		
 		// Upload multichunks
 		logger.log(Level.INFO, "Uploading new multichunks ...");
 		addMultiChunksToTransaction(newDatabaseVersion.getMultiChunks());		
@@ -153,13 +156,24 @@ public class UpOperation extends AbstractTransferOperation {
 
 		// Finish 'up' before 'cleanup' starts
 		finishOperation();
+		
 		logger.log(Level.INFO, "Sync up done.");
-
+		
 		// Result
 		addNewDatabaseChangesToResultChanges(newDatabaseVersion, result.getChangeSet());
 		result.setResultCode(UpResultCode.OK_CHANGES_UPLOADED);
 
+		fireEndEvent();
+
 		return result;
+	}
+
+	private void fireStartEvent() {
+		eventBus.post(new UpStartSyncExternalEvent(config.getLocalDir().getAbsolutePath()));		
+	}
+
+	private void fireEndEvent() {
+		eventBus.post(new UpEndSyncExternalEvent(config.getLocalDir().getAbsolutePath(), result.getResultCode(), result.getChangeSet()));
 	}
 
 	private boolean checkPreconditions() throws Exception {
@@ -306,15 +320,8 @@ public class UpOperation extends AbstractTransferOperation {
 
 	private void addMultiChunksToTransaction(Collection<MultiChunkEntry> multiChunksEntries) throws InterruptedException, StorageException {
 		List<MultiChunkId> dirtyMultiChunkIds = localDatabase.getDirtyMultiChunkIds();
-		int multiChunkIndex = 0;
-
-		if (listener != null) {
-			listener.onUploadStart(multiChunksEntries.size());
-		}
-
+		
 		for (MultiChunkEntry multiChunkEntry : multiChunksEntries) {
-			multiChunkIndex++;
-
 			if (dirtyMultiChunkIds.contains(multiChunkEntry.getId())) {
 				logger.log(Level.INFO, "- Ignoring multichunk (from dirty database, already uploaded), " + multiChunkEntry.getId() + " ...");
 			}
@@ -326,29 +333,13 @@ public class UpOperation extends AbstractTransferOperation {
 						remoteMultiChunkFile });
 
 				remoteTransaction.upload(localMultiChunkFile, remoteMultiChunkFile);
-
-				if (listener != null) {
-					listener.onUploadFile(remoteMultiChunkFile.getName(), multiChunkIndex);
-				}
 			}
-		}
-
-		if (listener != null) {
-			listener.onUploadEnd();
 		}
 	}
 
 	private void uploadLocalDatabase(File localDatabaseFile, DatabaseRemoteFile remoteDatabaseFile) throws InterruptedException, StorageException {
-		if (listener != null) {
-			listener.onUploadFile(localDatabaseFile.getName(), -1);
-		}
-
 		logger.log(Level.INFO, "- Uploading " + localDatabaseFile + " to " + remoteDatabaseFile + " ...");
 		remoteTransaction.upload(localDatabaseFile, remoteDatabaseFile);
-
-		if (listener != null) {
-			listener.onUploadEnd();
-		}
 	}
 
 	private DatabaseVersion index(List<File> localFiles) throws FileNotFoundException, IOException {
@@ -361,7 +352,7 @@ public class UpOperation extends AbstractTransferOperation {
 
 		// Index
 		Deduper deduper = new Deduper(config.getChunker(), config.getMultiChunker(), config.getTransformer());
-		Indexer indexer = new Indexer(config, deduper, listener);
+		Indexer indexer = new Indexer(config, deduper);
 
 		DatabaseVersion newDatabaseVersion = indexer.index(localFiles);
 

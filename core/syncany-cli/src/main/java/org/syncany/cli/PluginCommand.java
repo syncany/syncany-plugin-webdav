@@ -26,6 +26,9 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 
+import org.syncany.operations.OperationResult;
+import org.syncany.operations.daemon.messages.PluginConnectToHostExternalEvent;
+import org.syncany.operations.daemon.messages.PluginInstallExternalEvent;
 import org.syncany.operations.plugin.ExtendedPluginInfo;
 import org.syncany.operations.plugin.PluginInfo;
 import org.syncany.operations.plugin.PluginOperationOptions;
@@ -35,10 +38,19 @@ import org.syncany.operations.plugin.PluginOperationResult;
 import org.syncany.operations.plugin.PluginOperationResult.PluginResultCode;
 import org.syncany.util.StringUtil;
 
+import com.google.common.eventbus.Subscribe;
+
 public class PluginCommand extends Command {
+	private PluginAction action;
+	
 	@Override
 	public CommandScope getRequiredCommandScope() {
 		return CommandScope.ANY;
+	}
+	
+	@Override
+	public boolean canExecuteInDaemonScope() {
+		return false; // TODO [low] Doesn't have an impact if command scope is ANY
 	}
 
 	@Override
@@ -46,12 +58,13 @@ public class PluginCommand extends Command {
 		PluginOperationOptions operationOptions = parseOptions(operationArgs);
 		PluginOperationResult operationResult = client.plugin(operationOptions);
 
-		printResults(operationOptions, operationResult);
+		printResults(operationResult);
 
 		return 0;
 	}
 
-	private PluginOperationOptions parseOptions(String[] operationArgs) throws Exception {
+	@Override
+	public PluginOperationOptions parseOptions(String[] operationArgs) throws Exception {
 		PluginOperationOptions operationOptions = new PluginOperationOptions();
 
 		OptionParser parser = new OptionParser();
@@ -70,7 +83,7 @@ public class PluginCommand extends Command {
 
 		// <action>
 		String actionStr = nonOptionArgs.get(0).toString();
-		PluginAction action = parsePluginAction(actionStr);
+		action = parsePluginAction(actionStr);
 
 		operationOptions.setAction(action);
 
@@ -119,22 +132,25 @@ public class PluginCommand extends Command {
 		}
 	}
 
-	private void printResults(PluginOperationOptions operationOptions, PluginOperationResult operationResult) throws Exception {
-		switch (operationOptions.getAction()) {
+	@Override
+	public void printResults(OperationResult operationResult) {
+		PluginOperationResult concreteOperationResult = (PluginOperationResult) operationResult;
+		
+		switch (action) {
 		case LIST:
-			printResultList(operationResult);
+			printResultList(concreteOperationResult);
 			return;
 
 		case INSTALL:
-			printResultInstall(operationResult);
+			printResultInstall(concreteOperationResult);
 			return;
 
 		case REMOVE:
-			printResultRemove(operationResult);
+			printResultRemove(concreteOperationResult);
 			return;
 
 		default:
-			throw new Exception("Unknown action: " + operationOptions.getAction());
+			out.println("Unknown action: " + action);
 		}
 	}
 
@@ -276,5 +292,15 @@ public class PluginCommand extends Command {
 		}
 
 		return tableColumnWidths;
+	}	
+
+	@Subscribe
+	public void onPluginConnectToHostEventReceived(PluginConnectToHostExternalEvent event) {
+		out.printr("Connecting to " + event.getHost() + " ...");
 	}
+	
+	@Subscribe
+	public void onPluginInstallEventReceived(PluginInstallExternalEvent event) {
+		out.printr("Installing plugin from " + event.getSource() + " ...");
+	}	
 }

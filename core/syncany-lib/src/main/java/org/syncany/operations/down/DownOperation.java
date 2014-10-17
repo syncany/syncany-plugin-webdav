@@ -31,6 +31,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.syncany.config.Config;
+import org.syncany.config.LocalEventBus;
 import org.syncany.database.DatabaseVersion;
 import org.syncany.database.DatabaseVersionHeader;
 import org.syncany.database.DatabaseVersionHeader.DatabaseVersionType;
@@ -45,10 +46,13 @@ import org.syncany.database.dao.DatabaseXmlSerializer;
 import org.syncany.database.dao.DatabaseXmlSerializer.DatabaseReadType;
 import org.syncany.operations.AbstractTransferOperation;
 import org.syncany.operations.cleanup.CleanupOperation;
+import org.syncany.operations.daemon.messages.DownDownloadFileSyncExternalEvent;
+import org.syncany.operations.daemon.messages.DownEndSyncExternalEvent;
+import org.syncany.operations.daemon.messages.DownStartSyncExternalEvent;
 import org.syncany.operations.down.DownOperationOptions.DownConflictStrategy;
 import org.syncany.operations.down.DownOperationResult.DownResultCode;
 import org.syncany.operations.ls_remote.LsRemoteOperation;
-import org.syncany.operations.ls_remote.LsRemoteOperation.LsRemoteOperationResult;
+import org.syncany.operations.ls_remote.LsRemoteOperationResult;
 import org.syncany.operations.up.UpOperation;
 import org.syncany.plugins.transfer.StorageException;
 import org.syncany.plugins.transfer.TransferManager;
@@ -88,28 +92,26 @@ public class DownOperation extends AbstractTransferOperation {
 
 	public static final String ACTION_ID = "down";
 	
+	private LocalEventBus eventBus;
+	
 	private DownOperationOptions options;
 	private DownOperationResult result;
-	private DownOperationListener listener;
 	
 	private SqlDatabase localDatabase;
 	private DatabaseReconciliator databaseReconciliator;
 	private DatabaseXmlSerializer databaseSerializer;
 	
 	public DownOperation(Config config) {
-		this(config, new DownOperationOptions(), null);
-	}
-	
-	public DownOperation(Config config, DownOperationListener listener) {
-		this(config, new DownOperationOptions(), listener);
+		this(config, new DownOperationOptions());
 	}
 
-	public DownOperation(Config config, DownOperationOptions options, DownOperationListener listener) {
+	public DownOperation(Config config, DownOperationOptions options) {
 		super(config, ACTION_ID);
 
+		this.eventBus = LocalEventBus.getInstance();
+		
 		this.options = options;
 		this.result = new DownOperationResult();
-		this.listener = listener;
 
 		this.localDatabase = new SqlDatabase(config);
 		this.databaseReconciliator = new DatabaseReconciliator();
@@ -138,8 +140,9 @@ public class DownOperation extends AbstractTransferOperation {
 			return result;
 		}
 		
+		fireStartEvent();
 		startOperation();
-
+		
 		DatabaseBranch localBranch = localDatabase.getLocalDatabaseBranch();
 		List<DatabaseRemoteFile> newRemoteDatabases = result.getLsRemoteResult().getUnknownRemoteDatabases();
 
@@ -159,9 +162,18 @@ public class DownOperation extends AbstractTransferOperation {
 		localDatabase.writeKnownRemoteDatabases(newRemoteDatabases);
 
 		finishOperation();
+		fireEndEvent();		
 
 		logger.log(Level.INFO, "Sync down done.");
 		return result;
+	}
+
+	private void fireStartEvent() {
+		eventBus.post(new DownStartSyncExternalEvent(config.getLocalDir().getAbsolutePath()));					
+	}
+	
+	private void fireEndEvent() {
+		eventBus.post(new DownEndSyncExternalEvent(config.getLocalDir().getAbsolutePath(), result.getResultCode(), result.getChangeSet()));
 	}
 
 	/**
@@ -223,20 +235,12 @@ public class DownOperation extends AbstractTransferOperation {
 		TreeMap<File, DatabaseRemoteFile> unknownRemoteDatabasesInCache = new TreeMap<File, DatabaseRemoteFile>();
 		int downloadFileIndex = 0;
 
-		if (listener != null) {
-			listener.onDownloadStart(unknownRemoteDatabases.size());
-		}
-		
 		for (DatabaseRemoteFile remoteFile : unknownRemoteDatabases) {
 			File unknownRemoteDatabaseFileInCache = config.getCache().getDatabaseFile(remoteFile.getName());
 			DatabaseRemoteFile unknownDatabaseRemoteFile = new DatabaseRemoteFile(remoteFile.getName());
 			
 			logger.log(Level.INFO, "- Downloading {0} to local cache at {1}", new Object[] { remoteFile.getName(), unknownRemoteDatabaseFileInCache });
-
-			downloadFileIndex++;
-			if (listener != null) {
-				listener.onDownloadFile(remoteFile.getName(), downloadFileIndex);
-			}
+			eventBus.post(new DownDownloadFileSyncExternalEvent(config.getLocalDir().getAbsolutePath(), "database", ++downloadFileIndex, unknownRemoteDatabases.size()));
 			
 			transferManager.download(unknownDatabaseRemoteFile, unknownRemoteDatabaseFileInCache);
 
@@ -333,14 +337,21 @@ public class DownOperation extends AbstractTransferOperation {
 
 			for (DatabaseVersionHeader databaseVersionHeader : localPurgeBranch.getAll()) {
 				logger.log(Level.INFO, "    * MASTER->DIRTY: "+databaseVersionHeader);
-				localDatabase.markDatabaseVersionDirty(databaseVersionHeader.getVectorClock());
-			
-				String remoteFileToPruneClientName = config.getMachineName();
-				long remoteFileToPruneVersion = databaseVersionHeader.getVectorClock().getClock(config.getMachineName());
-				DatabaseRemoteFile remoteFileToPrune = new DatabaseRemoteFile(remoteFileToPruneClientName, remoteFileToPruneVersion);
+				localDatabase.markDatabaseVersionDirty(databaseVersionHeader.getVectorClock());			
 
-				logger.log(Level.INFO, "    * Deleting remote database file " + remoteFileToPrune + " ...");
-				transferManager.delete(remoteFileToPrune);		
+				boolean isOwnDatabaseVersionHeader = config.getMachineName().equals(databaseVersionHeader.getClient());
+				
+				if (isOwnDatabaseVersionHeader) {
+					String remoteFileToPruneClientName = config.getMachineName();
+					long remoteFileToPruneVersion = databaseVersionHeader.getVectorClock().getClock(config.getMachineName());
+					DatabaseRemoteFile remoteFileToPrune = new DatabaseRemoteFile(remoteFileToPruneClientName, remoteFileToPruneVersion);
+
+					logger.log(Level.INFO, "    * Deleting own remote database file " + remoteFileToPrune + " ...");
+					transferManager.delete(remoteFileToPrune);							
+				}
+				else {
+					logger.log(Level.INFO, "    * NOT deleting any database file remotely (not our database!)");
+				}						
 				
 				result.getDirtyDatabasesCreated().add(databaseVersionHeader);
 			}						

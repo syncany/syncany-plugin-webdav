@@ -42,8 +42,11 @@ InfoAfterFile=..\\..\\innosetup\\setup-info-after.rtf
 
 [Files]
 Source: "*"; DestDir: "{app}"
-Source: "bin\\*"; DestDir: "{app}\\bin"; Excludes: "syncany,syncanyd,sy,syd"
+Source: "bin\\*"; DestDir: "{app}\\bin"; Excludes: "syncany,sy"
 Source: "lib\\*"; DestDir: "{app}\\lib"
+
+[InstallDelete]
+Type: files; Name: "{app}\\lib\\*"
 
 [Tasks]
 Name: modifypath; Description: Add Syncany to PATH environment variable (recommended)
@@ -55,97 +58,4 @@ Name: "{group}\\Syncany User Guide and Wiki"; Filename: "https://www.syncany.org
 Name: "{group}\\Uninstall Syncany"; Filename: "{uninstallexe}"
 
 [Code]
-
-// 1. Set JAVA_HOME env. variable ///////////
-
-const 
-  ModPathName = 'modifypath'; 
-  ModPathType = 'user'; 
-  SetJavaHomeTaskName = 'setjavahome';
-
-var
-  JavaHome: String;
-  JavaHomeSet: Boolean;
-  RegRootSearchPaths: TArrayOfString;
-
-function InitializeSetup(): Boolean;
-var 
-  RegRootKey, i: Integer;
-  RegRootPath: String;
-  JavaVersion: String;
-begin
-  SetArrayLength(RegRootSearchPaths, 4);
-  RegRootSearchPaths[0] := 'SOFTWARE\\JavaSoft\\Java Development Kit';
-  RegRootSearchPaths[1] := 'SOFTWARE\\JavaSoft\\Java Runtime Environment';
-  RegRootSearchPaths[2] := 'SOFTWARE\\Wow6432Node\\JavaSoft\\Java Development Kit';
-  RegRootSearchPaths[3] := 'SOFTWARE\\Wow6432Node\\JavaSoft\\Java Runtime Environment';
-
-  if IsWin64 then begin
-    RegRootKey := HKLM64;
-  end
-  else begin
-    RegRootKey := HKLM;
-  end;
-  
-  JavaHome := GetEnv('JAVA_HOME');
-  
-  if JavaHome <> '' then begin
-    JavaHomeSet := True;
-    Result := True;
-  end
-  else begin
-    JavaHomeSet := False;
-    Result := False;
-
-    for i := 0 to GetArrayLength(RegRootSearchPaths)-1 do begin
-      RegRootPath := RegRootSearchPaths[i];
-       
-      if RegValueExists(RegRootKey, RegRootPath, 'CurrentVersion') then begin
-        RegQueryStringValue(RegRootKey, RegRootPath, 'CurrentVersion', JavaVersion);
-      
-        if RegValueExists(RegRootKey, RegRootPath + '\\' + JavaVersion, 'JavaHome') then begin
-          RegQueryStringValue(RegRootKey, RegRootPath + '\\' + JavaVersion, 'JavaHome', JavaHome);
-
-          Result := True;
-          break;
-        end        
-      end
-    end
-
-    if Result = false then begin
-      MsgBox('Java is not installed on your computer.'#13'Please install Java from java.com try again.', MbError, Mb_Ok);
-    end
-  end
-end;
- 
-procedure SetJavaHome();
-begin
-  if not JavaHomeSet then begin
-    RegWriteStringValue(HKEY_CURRENT_USER, 'Environment', 'JAVA_HOME', JavaHome);
-  end
-end;
-
-// 2. Set PATH variable (if ticked)  ////////
-
-function ModPathDir(): TArrayOfString; 
-begin
-  setArrayLength(Result, 1) 
-  Result[0] := ExpandConstant('{app}\\bin'); 
-end; 
-        
-#include "modpath.iss"
-
-// 3. Trigger post-install (taken from modpath.iss) /////////
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-	if CurStep = ssPostInstall then begin
-		if IsTaskSelected(ModPathName) then begin
-			ModPath(); // In 'modpath.iss', calls 'ModPathDir()'
-    end
-
-    if IsTaskSelected(SetJavaHomeTaskName) then begin
-			SetJavaHome();
-    end
-  end
-end;
+#include "code.iss"
