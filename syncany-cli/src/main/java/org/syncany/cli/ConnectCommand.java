@@ -21,13 +21,13 @@ import static java.util.Arrays.asList;
 
 import java.util.List;
 
-import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 
 import org.syncany.config.to.ConfigTO;
 import org.syncany.config.to.ConfigTO.ConnectionTO;
+import org.syncany.operations.OperationResult;
 import org.syncany.operations.init.ConnectOperationOptions;
 import org.syncany.operations.init.ConnectOperationOptions.ConnectOptionsStrategy;
 import org.syncany.operations.init.ConnectOperationResult;
@@ -45,11 +45,16 @@ public class ConnectCommand extends AbstractInitCommand {
 	}
 
 	@Override
+	public boolean canExecuteInDaemonScope() {
+		return false;
+	}
+
+	@Override
 	public int execute(String[] operationArgs) throws Exception {
 		boolean retryNeeded = true;
 		boolean performOperation = true;
 
-		ConnectOperationOptions operationOptions = parseConnectOptions(operationArgs);
+		ConnectOperationOptions operationOptions = parseOptions(operationArgs);
 
 		while (retryNeeded && performOperation) {
 			ConnectOperationResult operationResult = client.connect(operationOptions, this);
@@ -70,16 +75,17 @@ public class ConnectCommand extends AbstractInitCommand {
 		return 0;
 	}
 
-	private ConnectOperationOptions parseConnectOptions(String[] operationArguments) throws OptionException, Exception {
+	@Override
+	public ConnectOperationOptions parseOptions(String[] operationArgs) throws Exception {
 		ConnectOperationOptions operationOptions = new ConnectOperationOptions();
 
 		OptionParser parser = new OptionParser();
 		OptionSpec<String> optionPlugin = parser.acceptsAll(asList("P", "plugin")).withRequiredArg();
 		OptionSpec<String> optionPluginOpts = parser.acceptsAll(asList("o", "plugin-option")).withRequiredArg();
 		OptionSpec<Void> optionNonInteractive = parser.acceptsAll(asList("I", "no-interaction"));
-		OptionSpec<Void> optionNoDaemon = parser.acceptsAll(asList("N", "no-daemon"));
+		OptionSpec<Void> optionAddDaemon = parser.acceptsAll(asList("n", "add-daemon"));
 
-		OptionSet options = parser.parse(operationArguments);
+		OptionSet options = parser.parse(operationArgs);
 		List<?> nonOptionArgs = options.nonOptionArguments();
 
 		// --no-interaction
@@ -110,25 +116,28 @@ public class ConnectCommand extends AbstractInitCommand {
 		
 		operationOptions.setLocalDir(localDir);
 		operationOptions.setConfigTO(configTO);
-		operationOptions.setDaemon(!options.has(optionNoDaemon));		
+		operationOptions.setDaemon(options.has(optionAddDaemon));		
 
 		return operationOptions;
 	}
 
-	private void printResults(ConnectOperationResult operationResult) {
-		if (operationResult.getResultCode() == ConnectResultCode.OK) {
+	@Override
+	public void printResults(OperationResult operationResult) {
+		ConnectOperationResult concreteOperationResult = (ConnectOperationResult) operationResult;
+		
+		if (concreteOperationResult.getResultCode() == ConnectResultCode.OK) {
 			out.println();
 			out.println("Repository connected, and local folder initialized.");
 			out.println("You can now use the 'syncany' command to sync your files.");
 			out.println();
 			
-			if (operationResult.isAddedToDaemon()) {
+			if (concreteOperationResult.isAddedToDaemon()) {
 				out.println("To automatically sync this folder, simply restart the daemon with 'sy daemon restart'.");
 				out.println();
 			}			
 		}
-		else if (operationResult.getResultCode() == ConnectResultCode.NOK_TEST_FAILED) {
-			StorageTestResult testResult = operationResult.getTestResult();
+		else if (concreteOperationResult.getResultCode() == ConnectResultCode.NOK_TEST_FAILED) {
+			StorageTestResult testResult = concreteOperationResult.getTestResult();
 			out.println();			
 
 			if (!testResult.isTargetCanConnect()) {
@@ -155,7 +164,7 @@ public class ConnectCommand extends AbstractInitCommand {
 			out.println();
 			printTestResult(testResult);			
 		}		
-		else if (operationResult.getResultCode() == ConnectResultCode.NOK_DECRYPT_ERROR) {
+		else if (concreteOperationResult.getResultCode() == ConnectResultCode.NOK_DECRYPT_ERROR) {
 			out.println();
 			out.println("ERROR: Invalid password or corrupt ciphertext.");		
 			out.println();
@@ -168,5 +177,5 @@ public class ConnectCommand extends AbstractInitCommand {
 			out.println("ERROR: Cannot connect to repository. Unknown error code: " + operationResult);
 			out.println();
 		}
-	}
+	}		
 }
