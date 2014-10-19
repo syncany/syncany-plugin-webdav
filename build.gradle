@@ -8,14 +8,16 @@ configurations {
 project.ext {
 	pluginId = "webdav"
 	pluginName = "WebDAV"
-	pluginVersion = "0.1.10-alpha"	
+	pluginVersion = "0.1.12-alpha"	
+	pluginDebianVersion = "1"	
 	pluginDate = new Date()
-	pluginAppMinVersion = "0.1.10-alpha"
+	pluginAppMinVersion = "0.1.12-alpha"
 	pluginRelease = rootProject.ext.applicationRelease
 	pluginConflictsWith = ""
 	
 	pluginVersionSnapshot = rootProject.ext.applicationVersionSnapshot
 	pluginVersionFull = "${pluginVersion}${pluginVersionSnapshot}"	
+	pluginNeedsOperatingSystemAndArchitecture = false
 }
 
 dependencies {
@@ -33,4 +35,4 @@ dependencies {
 }
 
 apply from: 'core/gradle/gradle/plugins.jar.gradle'
-
+apply from: 'core/gradle/gradle/plugins.debian.gradle'
