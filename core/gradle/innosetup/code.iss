@@ -2,10 +2,9 @@
 // 1. Set JAVA_HOME env. variable ///////////
 
 const 
-  ModPathName = 'modifypath'; 
+  ModPathRun = True; 
   ModPathType = 'user'; 
-  SetJavaHomeTaskName = 'setjavahome';
-
+  
 var
   JavaHome: String;
   JavaHomeSet: Boolean;
@@ -22,8 +21,8 @@ begin
   if RegValueExists(RegRootKey, RegRootPath, 'CurrentVersion') then begin
     RegQueryStringValue(RegRootKey, RegRootPath, 'CurrentVersion', TempJavaVersion);
       
-    if RegValueExists(RegRootKey, RegRootPath + '\\' + TempJavaVersion, 'JavaHome') then begin
-      RegQueryStringValue(RegRootKey, RegRootPath + '\\' + TempJavaVersion, 'JavaHome', TempJavaHome);
+    if RegValueExists(RegRootKey, RegRootPath + '\' + TempJavaVersion, 'JavaHome') then begin
+      RegQueryStringValue(RegRootKey, RegRootPath + '\' + TempJavaVersion, 'JavaHome', TempJavaHome);
           
       Result := TempJavaHome;
     end        
@@ -37,10 +36,10 @@ var
 begin
   // Search paths for the Java installation
   SetArrayLength(RegRootSearchPaths, 4); 
-  RegRootSearchPaths[0] := 'SOFTWARE\\JavaSoft\\Java Development Kit';
-  RegRootSearchPaths[1] := 'SOFTWARE\\JavaSoft\\Java Runtime Environment'; 
-  RegRootSearchPaths[2] := 'SOFTWARE\\Wow6432Node\\JavaSoft\\Java Development Kit'; 
-  RegRootSearchPaths[3] := 'SOFTWARE\\Wow6432Node\\JavaSoft\\Java Runtime Environment'; 
+  RegRootSearchPaths[0] := 'SOFTWARE\JavaSoft\Java Development Kit';
+  RegRootSearchPaths[1] := 'SOFTWARE\JavaSoft\Java Runtime Environment'; 
+  RegRootSearchPaths[2] := 'SOFTWARE\Wow6432Node\JavaSoft\Java Development Kit'; 
+  RegRootSearchPaths[3] := 'SOFTWARE\Wow6432Node\JavaSoft\Java Runtime Environment'; 
 
   // Limit memory due to 32-bit Java on 64-bit system (see issue #222)
   // The values correspond to the paths above.
@@ -112,8 +111,10 @@ end;
 
 function ModPathDir(): TArrayOfString; 
 begin
-  setArrayLength(Result, 1) 
-  Result[0] := ExpandConstant('{app}\\bin'); 
+  setArrayLength(Result, 1); 
+  Result[0] := ExpandConstant('{app}\bin'); 
+  
+  Log('PATH will be extended by ' + ExpandConstant('{app}\bin'));
 end; 
         
 #include "modpath.iss"
@@ -126,7 +127,7 @@ var
   TagMaxMemoryPosStart, TagMaxMemoryPosEnd, TagUserConfigEnd: Integer;
 begin
   if LimitMemory then begin
-    UserConfigFileName := ExpandConstant('{userappdata}\\Syncany\\userconfig.xml');
+    UserConfigFileName := ExpandConstant('{userappdata}\Syncany\userconfig.xml');
 
     // If userconfig.xml exists, replace <maxMemory>-tags with maximum limit
     if FileExists(UserConfigFileName) then begin
@@ -161,14 +162,20 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then begin
-    if IsTaskSelected(ModPathName) then begin
+    if ModPathRun then begin
       ModPath(); // In 'modpath.iss', calls 'ModPathDir()'
     end
 
-    if IsTaskSelected(SetJavaHomeTaskName) then begin
-      SetJavaHome();
-    end
-
+    SetJavaHome();
     WriteMemoryLimitFile();
   end
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+	if CurUninstallStep = usUninstall then begin
+		if ModPathRun then begin
+		  ModPath(); // In 'modpath.iss', calls 'ModPathDir()'
+	  end;		
+	end;
 end;
