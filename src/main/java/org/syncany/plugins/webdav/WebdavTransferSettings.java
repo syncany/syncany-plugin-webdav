@@ -17,43 +17,24 @@
  */
 package org.syncany.plugins.webdav;
 
-import java.util.Map;
-
-import org.syncany.plugins.PluginOptionSpec;
-import org.syncany.plugins.PluginOptionSpec.ValueType;
-import org.syncany.plugins.PluginOptionSpecs;
-import org.syncany.plugins.transfer.StorageException;
+import org.simpleframework.xml.Element;
+import org.syncany.plugins.transfer.Encrypted;
+import org.syncany.plugins.transfer.Setup;
 import org.syncany.plugins.transfer.TransferSettings;
 
 public class WebdavTransferSettings extends TransferSettings {
+	@Element(name = "url", required = true)
+	@Setup(order = 1, description = "URL")
 	private String url;
+
+	@Element(name = "username", required = true)
+	@Setup(order = 2, description = "Username")
 	private String username;
+	
+	@Element(name = "password", required = true)
+	@Setup(order = 3, sensitive = true, description = "Password")
+	@Encrypted
 	private String password;
-	private boolean secure;
-
-	@Override
-	public void init(Map<String, String> optionValues) throws StorageException {
-		getOptionSpecs().validate(optionValues);
-		
-		this.url = optionValues.get("url");
-		this.username = optionValues.get("username");
-		this.password = optionValues.get("password");
-		this.secure = url.toLowerCase().startsWith("https");
-	}
-
-	@Override
-	public PluginOptionSpecs getOptionSpecs() {
-		return new PluginOptionSpecs(
-			new PluginOptionSpec("url", "URL (incl. path & port)", ValueType.STRING, true, false, null),
-			new PluginOptionSpec("username", "Username", ValueType.STRING, true, false, null),
-			new PluginOptionSpec("password", "Password", ValueType.STRING, true, true, null)
-		);				
-	}
-
-	@Override
-	public String toString() {
-		return WebdavTransferSettings.class.getSimpleName() + "[url=" + url + ", username=" + username + "]";
-	}
 
 	public String getUrl() {
 		return url;
@@ -84,6 +65,11 @@ public class WebdavTransferSettings extends TransferSettings {
 	}
 
 	public boolean isSecure() {
-		return secure;
+		return url.toLowerCase().startsWith("https");
+	}
+	
+	@Override
+	public String toString() {
+		return WebdavTransferSettings.class.getSimpleName() + "[url=" + url + ", username=" + username + "]";
 	}
 }

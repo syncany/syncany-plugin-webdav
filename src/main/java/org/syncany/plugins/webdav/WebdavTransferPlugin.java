@@ -17,23 +17,10 @@
  */
 package org.syncany.plugins.webdav;
 
-import org.syncany.config.Config;
-import org.syncany.plugins.transfer.TransferManager;
 import org.syncany.plugins.transfer.TransferPlugin;
-import org.syncany.plugins.transfer.TransferSettings;
 
-public class WebdavPlugin extends TransferPlugin {
-    public WebdavPlugin() {
+public class WebdavTransferPlugin extends TransferPlugin {
+    public WebdavTransferPlugin() {
     	super("webdav");
     }    
-
-    @Override
-    public WebdavTransferSettings createSettings() {
-        return new WebdavTransferSettings();
-    }
-
-	@Override
-	public TransferManager createTransferManager(TransferSettings connection, Config config) {
-		return new WebdavTransferManager((WebdavTransferSettings) connection, config);
-	}	
 }

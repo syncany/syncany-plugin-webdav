@@ -94,9 +94,8 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		this.tempPath = repoPath + "temporary/";
 	}
 
-	@Override
 	public WebdavTransferSettings getSettings() {
-		return (WebdavTransferSettings) super.getSettings();
+		return (WebdavTransferSettings) settings;
 	}
 
 	@Override
