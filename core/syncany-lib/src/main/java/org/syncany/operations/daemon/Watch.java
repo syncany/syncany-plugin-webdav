@@ -15,25 +15,37 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.syncany.plugins.webdav;
+package org.syncany.operations.daemon;
 
-import org.syncany.config.Config;
-import org.syncany.plugins.transfer.TransferManager;
-import org.syncany.plugins.transfer.TransferPlugin;
-import org.syncany.plugins.transfer.TransferSettings;
+import java.io.File;
 
-public class WebdavPlugin extends TransferPlugin {
-    public WebdavPlugin() {
-    	super("webdav");
-    }    
+import org.simpleframework.xml.Element;
 
-    @Override
-    public WebdavTransferSettings createSettings() {
-        return new WebdavTransferSettings();
-    }
+public class Watch {
+	public enum SyncStatus {
+		IN_SYNC, SYNCING
+	}
+	
+	@Element(name = "folder", required = true)
+	private File folder;
+	
+	@Element(name = "status", required = true)
+	private SyncStatus status;
 
-	@Override
-	public TransferManager createTransferManager(TransferSettings connection, Config config) {
-		return new WebdavTransferManager((WebdavTransferSettings) connection, config);
-	}	
+	public Watch() {
+		// Nothing.
+	}
+	
+	public Watch(File folder, SyncStatus status) {
+		this.folder = folder;
+		this.status = status;
+	}
+
+	public File getFolder() {
+		return folder;
+	}
+
+	public SyncStatus getStatus() {
+		return status;
+	}
 }

@@ -1,6 +1,6 @@
 Change Log
 ==========
 
-### Syncany WebDAV Plugin 0.1.12-alpha (Date: 19 Oct 2014)
+### Syncany WebDAV Plugin 0.2.0-alpha (Date: 8 Nov 2014)
 - First release
 
