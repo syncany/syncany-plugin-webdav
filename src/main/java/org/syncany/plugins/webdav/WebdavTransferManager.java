@@ -50,6 +50,7 @@ import org.syncany.plugins.transfer.AbstractTransferManager;
 import org.syncany.plugins.transfer.StorageException;
 import org.syncany.plugins.transfer.StorageMoveException;
 import org.syncany.plugins.transfer.files.ActionRemoteFile;
+import org.syncany.plugins.transfer.files.CleanupRemoteFile;
 import org.syncany.plugins.transfer.files.DatabaseRemoteFile;
 import org.syncany.plugins.transfer.files.MultichunkRemoteFile;
 import org.syncany.plugins.transfer.files.RemoteFile;
@@ -287,7 +288,7 @@ public class WebdavTransferManager extends AbstractTransferManager {
 		if (remoteFile.equals(MultichunkRemoteFile.class)) {
 			return multichunksPath;
 		}
-		else if (remoteFile.equals(DatabaseRemoteFile.class)) {
+		else if (remoteFile.equals(DatabaseRemoteFile.class) || remoteFile.equals(CleanupRemoteFile.class)) {
 			return databasesPath;
 		}
 		else if (remoteFile.equals(ActionRemoteFile.class)) {
