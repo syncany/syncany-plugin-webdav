@@ -5,11 +5,9 @@ env:
   global:
   - TERM=dumb
   
-  # FTP credentials
-  - secure: "JUG8Cp1ebY8PFo7spUbmi1ulVZ05ySc6pRm/lmG1v5Ad88yzAjsbgXEjZvrJgLyhmGb3x6dfTMK5lhUEV+iKsVgfpLRXOE99OqfArCLpS6TvAAkC6j8ISYrhTAKR1RgzxrxXQTTmdHLFj+qwCospWz/+Ll5u0cDRVuJPQDiVJBk="
-  - secure: "FKE/KY3hvUe6tCx3O3in7M7baH7PX8wZE0xLb+4F7nlqcd5tS8VLVnOzq1hMrQwEuKDOU8H+5itknwwFZEqhErb5bxuZFRgKG11QEZXi1xeFh72AUzs1RNrr6W2Ion1+iPzBiQGqqvmdl0pf6mKmHNlZpz+JAewmchSdaTdTpyQ="
-  - secure: "HdqBAnRZqZyilIoHJ4pDSznuUi74ZnLMhktxFUxX33WHCXaPuYRgECuiacxnza5Qi98Y91D94O5bx3pFdX+V1yYrpCbRgfc8QkUnVcZjonYgkhbsWY2RKbIS2YVQbUnRLO1sfozK3D+A2xUpIa/UBOcg6+PjPImg1nZxJfXZ7Co="
-  
+  # Encrypted env variable SYNCANY_API_KEY for upload
+  - secure: "IDonwOF468MDX146RLw5zUlrv8NjOWx57vkv1K9DwsNw28i1NTGWvGK6jnfWs4nVUyWWVsd3Hmu6KklBb17e+JYAKTs9WkTMBqaqKTpmvmvNaX2+QyfeLbgPx0S/xWMgkza9BUmWcHpIhiyPeEkqsvU+Ua7QGW0uNbuA2K9qVsY="
+
 branches:
   only:
   - master
@@ -22,8 +20,6 @@ notifications:
 before_install:
   # Standard Stuff
   - sudo apt-get update
-  - sudo apt-get install -y -q lftp
-  - lftp -v
   - mkdir ~/.gradle 2> /dev/null || true
   - echo "org.gradle.daemon=true" > ~/.gradle/gradle.properties
 
@@ -46,4 +42,4 @@ script:
   - ./gradlew pluginDebianDeb  
 
   # Upload JARs and DEBs
-  - core/gradle/lftp/lftpuploadplugin.sh
+  - core/gradle/upload/upload-plugin.sh
